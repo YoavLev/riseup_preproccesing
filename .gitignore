@@ -1,0 +1,21 @@
+# Python environment (recreate with: uv sync)
+.venv/
+__pycache__/
+.ipynb_checkpoints/
+
+# EEG and behavioral data never go to GitHub (size + participant privacy)
+data/*
+!data/README.md
+derivatives/
+*.fif
+*.vhdr
+*.vmrk
+*.eeg
+*.bdf
+*.edf
+*.set
+*.fdt
+*.hsd
+
+# macOS
+.DS_Store
