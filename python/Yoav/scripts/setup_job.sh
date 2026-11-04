@@ -18,6 +18,8 @@ export PATH="$HOME/.local/bin:$PATH"
 cd "$REPO"
 uv sync
 uv run python -m ipykernel install --user --name riseup --display-name "riseup (uv)"
+# interactive plots in JupyterLab (%matplotlib widget): ipympl must also be in JupyterLab's own Python
+if [ -x /opt/conda/bin/pip ]; then /opt/conda/bin/pip install -q ipympl; fi
 
 mkdir -p "$WORK/derivatives/preproc" "$WORK/logs"
 test -d /work/RiseTogetherEEG/VideoGameParadigm-EEG || test -d /work/VideoGameParadigm-EEG || echo "WARNING: the BIDS dataset is not mounted"
