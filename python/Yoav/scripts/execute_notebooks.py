@@ -30,7 +30,7 @@ def run(notebook, subject):
     out.parent.mkdir(parents=True, exist_ok=True)
     start = time.time()
     try:
-        NotebookClient(nb, timeout=None, kernel_name="python3", resources={"metadata": {"path": str(HERE)}}).execute()
+        NotebookClient(nb, timeout=None, kernel_name="riseup", resources={"metadata": {"path": str(HERE)}}).execute()
         status = "ok"
     except Exception as error:  # keep going with the next participant, but save what ran
         status = f"FAILED: {type(error).__name__}: {str(error).splitlines()[-1] if str(error) else ''}"
