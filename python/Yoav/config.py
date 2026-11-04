@@ -14,7 +14,9 @@ from pathlib import Path
 # --- Paths ---
 # The BIDS dataset (read-only, on UCloud only: the data never leave UCloud).
 # RT_BIDS_ROOT overrides it, e.g. for a test copy.
-BIDS_ROOT = Path(os.environ.get("RT_BIDS_ROOT", "/work/RiseTogetherEEG/VideoGameParadigm-EEG"))
+# The dataset is mounted either as its parent folder or as the dataset folder itself, depending on the job
+_BIDS_MOUNTS = [Path("/work/RiseTogetherEEG/VideoGameParadigm-EEG"), Path("/work/VideoGameParadigm-EEG")]
+BIDS_ROOT = Path(os.environ.get("RT_BIDS_ROOT") or next((p for p in _BIDS_MOUNTS if p.exists()), _BIDS_MOUNTS[0]))
 # All outputs go to my own folder (the dataset is read-only); one folder per participant.
 OUT_ROOT = Path(os.environ.get("RT_OUT_ROOT", "/work/YoavLevy#3923/derivatives/preproc"))
 LOG_DIR = OUT_ROOT.parent.parent / "logs"  # executed notebooks and script output

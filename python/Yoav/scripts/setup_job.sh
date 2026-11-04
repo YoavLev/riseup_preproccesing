@@ -2,7 +2,7 @@
 # Run once at the start of every UCloud job (the job's home is wiped, /work is kept):
 #   bash "/work/YoavLevy#3923/riseup_preproccesing/python/Yoav/scripts/setup_job.sh"
 # Installs uv and the Python environment of riseup_preproccesing, and registers it as a
-# Jupyter kernel for VS Code. Mount /work/RiseTogetherEEG and /work/YoavLevy#3923 in the job.
+# Jupyter kernel for VS Code. Mount the dataset (/work/RiseTogetherEEG or /work/VideoGameParadigm-EEG) and /work/YoavLevy#3923 in the job.
 set -euo pipefail
 
 WORK="/work/YoavLevy#3923"
@@ -20,5 +20,5 @@ uv sync
 uv run python -m ipykernel install --user --name riseup --display-name "riseup (uv)"
 
 mkdir -p "$WORK/derivatives/preproc" "$WORK/logs"
-test -d /work/RiseTogetherEEG/VideoGameParadigm-EEG || echo "WARNING: the BIDS dataset is not mounted"
+test -d /work/RiseTogetherEEG/VideoGameParadigm-EEG || test -d /work/VideoGameParadigm-EEG || echo "WARNING: the BIDS dataset is not mounted"
 echo "Ready. In new shells run:  export UV_PROJECT_ENVIRONMENT=\"$UV_PROJECT_ENVIRONMENT\" PATH=\"\$HOME/.local/bin:\$PATH\""

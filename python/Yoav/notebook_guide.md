@@ -12,7 +12,7 @@ The preprocessing follows the **reference pipeline** the lab uses for ICA: Strop
 - **Settings:** every constant is in `config.py`, with the name it has in the reference scripts in brackets (e.g. `[ana01: LP]`).
 - **Helpers:** `utils.py` has Python versions of two EEGLAB functions: `firws_filter` (= `pop_firws`) and `jointprob_keep` (= `pop_jointprob`).
 - **Open questions** about the adaptation: `ica_reference_questions.md`.
-- **Data:** the BIDS dataset on UCloud (`/work/RiseTogetherEEG/VideoGameParadigm-EEG`, read-only), read with `rt_bids` (the dataset's `code/rt_bids.py`). Participants are `sub-NNN`; their session is `group` in `participants.tsv`.
+- **Data:** the BIDS dataset on UCloud (`/work/RiseTogetherEEG/VideoGameParadigm-EEG` or `/work/VideoGameParadigm-EEG`, depending on how it is mounted; read-only), read with `rt_bids` (the dataset's `code/rt_bids.py`). Participants are `sub-NNN`; their session is `group` in `participants.tsv`.
 - **Outputs:** `/work/YoavLevy#3923/derivatives/preproc/sub-NNN/` (`OUT_ROOT` in `config.py`); executed notebooks and script output in `/work/YoavLevy#3923/logs/`.
 - **Scripts** (`scripts/`): `setup_job.sh` (environment, once per UCloud job), `execute_notebooks.py <notebook> <session> [sub-NNN ...]` (runs a per-participant notebook for everyone in a session).
 - The earlier single notebook `eeg_data_preprocessing_mne_ordered.ipynb` is **superseded** by these three.
