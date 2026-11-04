@@ -8,6 +8,7 @@ The participant is passed to the notebook through the environment variable RT_SU
 Usage (on UCloud, in the riseup_preproccesing folder):
     uv run python python/Yoav/scripts/execute_notebooks.py 01_ica session01
     uv run python python/Yoav/scripts/execute_notebooks.py 03_clean session01 sub-003   # one participant
+    uv run python python/Yoav/scripts/execute_notebooks.py 02_corrmap session01         # all participants at once
 """
 
 import os
@@ -23,6 +24,13 @@ sys.path.insert(0, str(HERE))
 import config as cfg  # noqa: E402
 
 
+def force_static_plots(nb):
+    """Interactive plots (%matplotlib widget) do not show in a saved notebook: use static ones."""
+    for cell in nb.cells:
+        if cell.cell_type == "code":
+            cell.source = cell.source.replace("%matplotlib widget", "%matplotlib inline")
+
+
 def run(notebook, subject):
     nb = nbformat.read(HERE / f"{notebook}.ipynb", as_version=4)
     os.environ["RT_SUBJECT"] = subject  # the kernel inherits it
@@ -30,6 +38,7 @@ def run(notebook, subject):
     out.parent.mkdir(parents=True, exist_ok=True)
     start = time.time()
     try:
+        force_static_plots(nb)
         NotebookClient(nb, timeout=None, kernel_name="riseup", resources={"metadata": {"path": str(HERE)}}).execute()
         status = "ok"
     except Exception as error:  # keep going with the next participant, but save what ran
@@ -40,6 +49,8 @@ def run(notebook, subject):
 
 
 def main(notebook, group, subjects=None):
+    if notebook == "02_corrmap":  # one run for all participants (the log is named after the session)
+        subjects = [group]
     subjects = subjects or cfg.session_subjects(group)
     results = [run(notebook, s) for s in subjects]
     print(f"\n{sum(results)} of {len(results)} succeeded")

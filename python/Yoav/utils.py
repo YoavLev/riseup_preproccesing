@@ -71,3 +71,50 @@ def jointprob_keep(epochs_data, threshold):
 
     reject = (np.abs(local) > threshold).any(axis=0) | (np.abs(global_) > threshold)
     return ~reject
+
+
+def find_bad_channels(raw, z_max=5.0, corr_min=0.4, corr_fraction=0.01, flat_uv=1.0, window=1.0):
+    """Clearly bad EEG channels, with two criteria of the PREP pipeline (Bigdely-Shamlo et al.,
+    2015), on a 1-40 Hz copy of the task data (breaks left out).
+
+    - noisy or flat: the channel's SD is more than `z_max` robust SDs above the median channel
+      (robust SD = 1.4826 x median absolute deviation, so a few bad channels do not hide each other),
+      or below `flat_uv` microvolts;
+    - not correlated: in each 1 s window, the channel's highest absolute correlation with any other
+      channel; bad if it is below `corr_min` in more than `corr_fraction` of the windows (a good
+      channel always resembles its neighbours).
+
+    Returns a table with one row per channel and the reason it is bad ("" if it is good).
+    """
+    import mne
+    import pandas as pd
+
+    eeg = raw.copy().pick(mne.pick_types(raw.info, eeg=True, exclude=[]))
+    eeg.filter(1, 40, verbose="error")
+    x = eeg.get_data(reject_by_annotation="omit")
+
+    sd = x.std(axis=1)
+    robust_sd = 1.4826 * np.median(np.abs(sd - np.median(sd)))
+    z = (sd - np.median(sd)) / robust_sd
+
+    n = int(window * raw.info["sfreq"])
+    w = x[:, : x.shape[1] // n * n].reshape(len(x), -1, n).transpose(1, 0, 2)  # (windows, channels, samples)
+    w = w - w.mean(axis=2, keepdims=True)
+    w = w / (w.std(axis=2, keepdims=True) + 1e-20)
+    corr = np.abs(np.einsum("wcs,wds->wcd", w, w) / n)
+    corr[:, np.arange(len(x)), np.arange(len(x))] = 0  # ignore each channel's correlation with itself
+    low_corr = (corr.max(axis=2) < corr_min).mean(axis=0)
+
+    table = pd.DataFrame({"channel": eeg.ch_names, "sd_uv": sd * 1e6, "sd_z": z, "low_corr_fraction": low_corr})
+    reasons = []
+    for row in table.itertuples():
+        reason = []
+        if row.sd_z > z_max:
+            reason.append("noisy")
+        if row.sd_uv < flat_uv:
+            reason.append("flat")
+        if row.low_corr_fraction > corr_fraction:
+            reason.append("uncorrelated")
+        reasons.append(" ".join(reason))
+    table["reason"] = reasons
+    return table.round(3)
