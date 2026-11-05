@@ -4,8 +4,8 @@ ICLabel (Pion-Tonachini et al., 2019; package mne-icalabel) gives every ICA comp
 probability of being brain, muscle, eye, heart, line noise, channel noise or other. For each
 artifact type, the suggested template is the component (over all participants with an ICA) with
 the highest probability of that type:
-- eye_blink:   eye, with Fp1 and Fp2 of the same sign (both eyes move the same way);
-- lateral_eye: eye, with F7 and F8 of opposite signs (the eyes move left/right);
+- eye_blink:   eye, with Fp1 and Fp2 of the same sign and F7 and F8 of the same sign (symmetric map);
+- lateral_eye: eye, with Fp1 and Fp2 and F7 and F8 of opposite signs (left/right map);
 - heartbeat:   heart;
 - muscle:      muscle.
 A type is left out if no component reaches MIN_PROBABILITY: a weak template would make CORRMAP
@@ -56,8 +56,8 @@ table = pd.DataFrame(rows)
 table.to_csv(cfg.OUT_ROOT / "iclabel_probabilities.csv", index=False)
 
 candidates = {
-    "eye_blink": ("eye", table["same_sign_Fp"]),
-    "lateral_eye": ("eye", table["opposite_sign_F7_F8"]),
+    "eye_blink": ("eye", table["same_sign_Fp"] & ~table["opposite_sign_F7_F8"]),
+    "lateral_eye": ("eye", ~table["same_sign_Fp"] & table["opposite_sign_F7_F8"]),
     "heartbeat": ("heart", True),
     "muscle": ("muscle", True),
 }
