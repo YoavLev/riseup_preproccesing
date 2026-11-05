@@ -121,16 +121,12 @@ HP_ORDER = 500  # high-pass filter order                                 [ana03:
 # as in the reference pipeline. M1/M2 themselves are removed from the data (DROP_CHANNELS).
 
 # --- ICA as a spatial filter (04_spatial_filter) ---
-# A component is a candidate for an area when its map is mostly over the area's electrodes and its
-# spectrum has a peak in the area's band(s). The game has no sound, so no auditory area.
-SPATIAL_FILTER = {
-    "visual": {"region": ["O1", "O2", "Pz", "P3", "P4", "P7", "P8"], "bands": {"alpha": (8, 12)}},
-    "motor": {"region": ["C3", "Cz", "C4", "FC1", "FC2", "CP1", "CP2"], "bands": {"mu": (8, 12), "beta": (13, 30)}},
+# Bands of the envelopes, per area. The game has no sound, so no auditory area.
+# Components are chosen by eye (no automatic scoring), see SPATIAL_FILTER_CHOICE.
+SPATIAL_FILTER_BANDS = {
+    "visual": {"alpha": (8, 12)},
+    "motor": {"mu": (8, 12), "beta": (13, 30)},
 }
-MOTOR_LEFT, MOTOR_RIGHT = ["C3", "FC1", "CP1"], ["C4", "FC2", "CP2"]  # to note which side a motor component is on
-SPATIAL_FILTER_BACKGROUND = [(2, 7), (31, 40)]  # frequencies (Hz) used to fit the 1/f background
-SPATIAL_FILTER_MIN_LOCATION = 0.4  # share of the component's map weight that must be in the region
-SPATIAL_FILTER_N_CANDIDATES = 3  # candidates per area saved as PNG for the review
 # Chosen after the review with the supervisor: {area: (component, band of the envelope)}, e.g.
 # "sub-001": {"visual": (5, "alpha"), "motor": (8, "beta")}. Envelopes are computed only for these.
 SPATIAL_FILTER_CHOICE = {

@@ -7,7 +7,7 @@ The preprocessing follows the **reference pipeline** the lab uses for ICA: Strop
 | `ana01_ICA.m` | `01_ica.ipynb` | once **per participant** | Prepares the data and learns the ICA |
 | `ana02_corrmap.m` | `02_corrmap.ipynb` | once, for **all participants** together | Finds the artifact components with CORRMAP |
 | `ana03_preprocessing.m` | `03_clean.ipynb` | once **per participant** | Removes the components and filters the data |
-| — (next step) | `04_spatial_filter.ipynb` | once **per participant** | Uses ICA as a spatial filter: saves the candidate visual (alpha) and motor (mu/beta) components as PNG for the review (`spatial_filter_review/<session>/`); after the choice (`SPATIAL_FILTER_CHOICE`), computes their envelopes |
+| — (next step) | `04_spatial_filter.ipynb` | once **per participant** | Uses ICA as a spatial filter: saves a PNG of every kept component for the review (no automatic scoring; visual and motor components are chosen by eye) (`spatial_filter_review/<session>/`); after the choice (`SPATIAL_FILTER_CHOICE`), computes their envelopes |
 
 - **Settings:** every constant is in `config.py`, with the name it has in the reference scripts in brackets (e.g. `[ana01: LP]`).
 - **Helpers:** `utils.py` has Python versions of two EEGLAB functions: `firws_filter` (= `pop_firws`) and `jointprob_keep` (= `pop_jointprob`).
