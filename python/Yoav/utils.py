@@ -73,16 +73,20 @@ def jointprob_keep(epochs_data, threshold):
     return ~reject
 
 
-def find_bad_channels(raw, z_max=5.0, corr_min=0.4, corr_fraction=0.01, flat_uv=1.0, window=1.0):
-    """Clearly bad EEG channels, with two criteria of the PREP pipeline (Bigdely-Shamlo et al.,
+def find_bad_channels(raw, z_max=5.0, corr_min=0.4, corr_fraction=0.5, flat_uv=1.0, eye_channels=("Fp1", "Fp2"),
+                      window=1.0):
+    """Clearly bad EEG channels, with the two main criteria of the PREP pipeline (Bigdely-Shamlo et al.,
     2015), on a 1-40 Hz copy of the task data (breaks left out).
 
-    - noisy or flat: the channel's SD is more than `z_max` robust SDs above the median channel
-      (robust SD = 1.4826 x median absolute deviation, so a few bad channels do not hide each other),
-      or below `flat_uv` microvolts;
+    - noisy or flat: the channel's robust amplitude (0.7413 x interquartile range, as PREP; rare
+      large events such as blinks hardly change it) is more than `z_max` robust SDs above the median
+      channel, or below `flat_uv` microvolts. The eye-near channels (`eye_channels`) are not checked
+      for noise: their large amplitude is eye activity, which ICA removes (CORRMAP's eye templates
+      need these channels);
     - not correlated: in each 1 s window, the channel's highest absolute correlation with any other
-      channel; bad if it is below `corr_min` in more than `corr_fraction` of the windows (a good
-      channel always resembles its neighbours).
+      channel; bad if it is below `corr_min` in more than `corr_fraction` of the windows. PREP uses
+      1% of the windows; with only 27 electrodes the temporal and frontal channels have no close
+      neighbour and often fall below, so here a channel must be uncorrelated most of the time.
 
     Returns a table with one row per channel and the reason it is bad ("" if it is good).
     """
@@ -93,9 +97,9 @@ def find_bad_channels(raw, z_max=5.0, corr_min=0.4, corr_fraction=0.01, flat_uv=
     eeg.filter(1, 40, verbose="error")
     x = eeg.get_data(reject_by_annotation="omit")
 
-    sd = x.std(axis=1)
-    robust_sd = 1.4826 * np.median(np.abs(sd - np.median(sd)))
-    z = (sd - np.median(sd)) / robust_sd
+    q75, q25 = np.percentile(x, [75, 25], axis=1)
+    amplitude = 0.7413 * (q75 - q25)
+    z = (amplitude - np.median(amplitude)) / (1.4826 * np.median(np.abs(amplitude - np.median(amplitude))))
 
     n = int(window * raw.info["sfreq"])
     w = x[:, : x.shape[1] // n * n].reshape(len(x), -1, n).transpose(1, 0, 2)  # (windows, channels, samples)
@@ -105,13 +109,14 @@ def find_bad_channels(raw, z_max=5.0, corr_min=0.4, corr_fraction=0.01, flat_uv=
     corr[:, np.arange(len(x)), np.arange(len(x))] = 0  # ignore each channel's correlation with itself
     low_corr = (corr.max(axis=2) < corr_min).mean(axis=0)
 
-    table = pd.DataFrame({"channel": eeg.ch_names, "sd_uv": sd * 1e6, "sd_z": z, "low_corr_fraction": low_corr})
+    table = pd.DataFrame({"channel": eeg.ch_names, "amplitude_uv": amplitude * 1e6, "amplitude_z": z,
+                          "low_corr_fraction": low_corr})
     reasons = []
     for row in table.itertuples():
         reason = []
-        if row.sd_z > z_max:
+        if row.amplitude_z > z_max and row.channel not in eye_channels:
             reason.append("noisy")
-        if row.sd_uv < flat_uv:
+        if row.amplitude_uv < flat_uv:
             reason.append("flat")
         if row.low_corr_fraction > corr_fraction:
             reason.append("uncorrelated")

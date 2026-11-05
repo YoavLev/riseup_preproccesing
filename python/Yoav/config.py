@@ -67,10 +67,10 @@ BAD_CHANNELS = {
 }
 # Clearly bad channels are also found automatically (utils.find_bad_channels, criteria of the PREP
 # pipeline); the thresholds:
-BAD_CHANNEL_Z = 5.0  # noisy: SD more than 5 robust SDs above the median channel
-BAD_CHANNEL_FLAT_UV = 1.0  # flat: SD below 1 µV (1-40 Hz)
-BAD_CHANNEL_CORR = 0.4  # uncorrelated: highest correlation with any other channel below 0.4 ...
-BAD_CHANNEL_CORR_FRACTION = 0.01  # ... in more than 1% of the 1 s windows
+BAD_CHANNEL_Z = 5.0  # noisy: robust amplitude more than 5 robust SDs above the median channel (as PREP)
+BAD_CHANNEL_FLAT_UV = 1.0  # flat: robust amplitude below 1 µV (1-40 Hz)
+BAD_CHANNEL_CORR = 0.4  # uncorrelated: highest correlation with any other channel below 0.4 (as PREP) ...
+BAD_CHANNEL_CORR_FRACTION = 0.5  # ... in more than half of the 1 s windows (PREP: 1%; too strict for 27 electrodes)
 
 # --- Events (annotations from the dataset's events.tsv, read by rt_bids) ---
 CONDITIONS = ["motor_baseline", "individual", "joint"]  # trials to keep (motor baseline kept as a control)
