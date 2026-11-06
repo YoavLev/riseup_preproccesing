@@ -72,6 +72,12 @@ BAD_CHANNEL_FLAT_UV = 1.0  # flat: robust amplitude below 1 µV (1-40 Hz)
 BAD_CHANNEL_CORR = 0.4  # uncorrelated: highest correlation with any other channel below 0.4 (as PREP) ...
 BAD_CHANNEL_CORR_FRACTION = 0.5  # ... in more than half of the 1 s windows (PREP: 1%; too strict for 27 electrodes)
 
+# Reference of the EEG channels, set in 01_ica after the bad channels are interpolated:
+#   None      = keep the recording reference (mastoids), as in the reference pipeline;
+#   "average" = common average reference (being tested, supervisor's request 2026-11-06).
+# The environment variable RT_REFERENCE overrides it, so both can be run side by side.
+REFERENCE = os.environ.get("RT_REFERENCE") or None
+
 # --- Events (annotations from the dataset's events.tsv, read by rt_bids) ---
 CONDITIONS = ["motor_baseline", "individual", "joint"]  # trials to keep (motor baseline kept as a control)
 TRIAL_START = "TRIAL_START/"  # e.g. TRIAL_START/joint/r1/t2
