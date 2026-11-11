@@ -74,15 +74,22 @@ BAD_CHANNEL_CORR_FRACTION = 0.5  # ... in more than half of the 1 s windows (PRE
 
 # Reference of the EEG channels, set in 01_ica after the bad channels are interpolated:
 #   None      = keep the recording reference (mastoids), as in the reference pipeline;
-#   "average" = common average reference (being tested, supervisor's request 2026-11-06).
-# The environment variable RT_REFERENCE overrides it, so both can be run side by side.
-REFERENCE = os.environ.get("RT_REFERENCE") or None
+#   "average" = common average reference (used, decided 2026-11-11; supervisor's request 2026-11-06).
+# The environment variable RT_REFERENCE overrides it.
+REFERENCE = os.environ.get("RT_REFERENCE") or "average"
 
 # --- Events (annotations from the dataset's events.tsv, read by rt_bids) ---
 CONDITIONS = ["motor_baseline", "individual", "joint"]  # trials to keep (motor baseline kept as a control)
 TRIAL_START = "TRIAL_START/"  # e.g. TRIAL_START/joint/r1/t2
 TRIAL_END = "TRIAL_END/"
 BREAK_MIN_DURATION = 15.0  # gaps between trials longer than this (s) are marked as BAD_break
+
+# Bad stretches (01_ica step 3b, added to the reference pipeline): the EEG (1-40 Hz) is cut into 1 s windows;
+# a window is marked BAD_amplitude when the median of its channel SDs is above the threshold.
+# Typical clean data: about 10 µV. Meant for stretches where (nearly) all channels are hit at once,
+# e.g. headset or cable problems (sub-013, joint block 3); single bad channels are handled in step 4.
+BAD_SEGMENT_WINDOW = 1.0  # window length [s]
+BAD_SEGMENT_SD_UV = 50.0  # threshold [µV]
 
 # --- ICA training copy (ana01_ICA.m) ---
 ICA_LP = 40  # low-pass cut-off [Hz], only for ICA                      [ana01: LP]
@@ -123,8 +130,8 @@ LP = 40  # low-pass cut-off [Hz]                                         [ana03:
 LP_ORDER = 100  # low-pass filter order                                  [ana03: LP_ord]
 HP = 0.1  # high-pass cut-off [Hz]                                       [ana03: HP_erp]
 HP_ORDER = 500  # high-pass filter order                                 [ana03: HP_ord]
-# No re-referencing: the data stay referenced to the mastoids, the recording reference (confirmed),
-# as in the reference pipeline. M1/M2 themselves are removed from the data (DROP_CHANNELS).
+# Recorded against the mastoids (confirmed); re-referenced to the common average in 01_ica (REFERENCE above),
+# unlike the reference pipeline. M1/M2 themselves are removed from the data (DROP_CHANNELS).
 
 # --- ICA as a spatial filter (04_spatial_filter) ---
 # Bands of the envelopes, per area. The game has no sound, so no auditory area.
