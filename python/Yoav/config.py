@@ -108,16 +108,17 @@ RANDOM_STATE = 97  # fixed seed so ICA gives the same result every run
 # component plots of all participants (01_ica saves them as PNG).
 # Note: MNE counts components from 0, EEGLAB from 1 (EEGLAB component 1 = MNE component 0).
 CORRMAP_TEMPLATES = {
-    # Provisional (session01): suggested by scripts/suggest_corrmap_templates.py (ICLabel); check the
-    # template plots in 02_corrmap, step 2.
-    "eye_blink": ("sub-005", 4),  # ICLabel eye p = 0.995    [ana02: blink_set, blink_comp]
-    "lateral_eye": ("sub-003", 10),  # ICLabel eye p = 0.996  [ana02: eyemov_set, eyemov_comp]
-    # heartbeat: left out for now: no component reaches ICLabel heart p >= 0.5 (best: sub-002 4, p = 0.49)
+    # Provisional (session03, 2026-11-11): suggested by scripts/suggest_corrmap_templates.py session03
+    # (ICLabel); check the template plots in 02_corrmap, step 2. Replaces the session01 templates
+    # (sub-005 4, sub-003 10, sub-004 21), which were fitted with the mastoid reference.
+    "eye_blink": ("sub-013", 5),  # ICLabel eye p = 0.99      [ana02: blink_set, blink_comp]
+    "lateral_eye": ("sub-016", 9),  # ICLabel eye p = 1.00    [ana02: eyemov_set, eyemov_comp]
+    # heartbeat: left out: no component reaches ICLabel heart p >= 0.5 (best: sub-018 8, p = 0.10)
     #   [ana02: heart_set, heart_comp]
     # Added to the reference (supervisor's decision): tapping produces muscle artifacts in the beta band.
     # Muscle components are focal and often one-sided; if one template misses the other side,
-    # add a second one (e.g. "muscle_left" and "muscle_right").
-    "muscle": ("sub-004", 21),  # ICLabel muscle p = 0.97
+    # add a second one (e.g. "muscle_left" and "muscle_right"; next suggestions: sub-018 12, sub-014 12).
+    "muscle": ("sub-018", 5),  # ICLabel muscle p = 0.96
 }
 CORRMAP_THRESHOLD = 0.8  # correlation threshold                         [ana02: 'th', '0.8']
 # Extra components to remove per participant after visual review (beyond what CORRMAP found)
