@@ -115,10 +115,9 @@ CORRMAP_TEMPLATES = {
     "lateral_eye": ("sub-016", 9),  # ICLabel eye p = 1.00    [ana02: eyemov_set, eyemov_comp]
     # heartbeat: left out: no component reaches ICLabel heart p >= 0.5 (best: sub-018 8, p = 0.10)
     #   [ana02: heart_set, heart_comp]
-    # Added to the reference (supervisor's decision): tapping produces muscle artifacts in the beta band.
-    # Muscle components are focal and often one-sided; if one template misses the other side,
-    # add a second one (e.g. "muscle_left" and "muscle_right"; next suggestions: sub-018 12, sub-014 12).
-    "muscle": ("sub-018", 5),  # ICLabel muscle p = 0.96
+    # muscle: not removed (supervisor, 2026-11-11): removing muscle components can also remove brain
+    #   signal. (A session03 muscle template, sub-018 5, matched only itself; ICLabel saw 13 more.)
+    #   Muscle stays in the data: watch the beta band (central components, tap rate, EMG).
 }
 CORRMAP_THRESHOLD = 0.8  # correlation threshold                         [ana02: 'th', '0.8']
 # Extra components to remove per participant after visual review (beyond what CORRMAP found)
