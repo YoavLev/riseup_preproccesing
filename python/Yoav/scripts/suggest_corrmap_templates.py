@@ -3,7 +3,7 @@
 ICLabel (Pion-Tonachini et al., 2019; package mne-icalabel) gives every ICA component the
 probability of being brain, muscle, eye, heart, line noise, channel noise or other. For each
 artifact type, the suggested template is the component (over all participants with an ICA) with
-the highest probability of that type:
+the highest probability of that type (over the participants of one session):
 - eye_blink:   eye, with Fp1 and Fp2 of the same sign and F7 and F8 of the same sign (symmetric map);
 - lateral_eye: eye, with Fp1 and Fp2 and F7 and F8 of opposite signs (left/right map);
 - heartbeat:   heart;
@@ -11,14 +11,16 @@ the highest probability of that type:
 A type is left out if no component reaches MIN_PROBABILITY: a weak template would make CORRMAP
 remove components that are not that artifact.
 
-Caveat: ICLabel was trained on average-referenced data; ours stay in the mastoid reference (as in
-the reference pipeline), so mne-icalabel warns. The suggestions are a starting point: check the
-template plots in 02_corrmap (step 2) and change CORRMAP_TEMPLATES in config.py if needed.
+ICLabel gets the data the ICA learned from: 1-40 Hz (the ICA copy's low-pass), cut into 1 s pieces,
+without the BAD_ stretches (breaks, BAD_amplitude). With 1-100 Hz data, the 50 Hz mains noise (never
+seen by the ICA) makes many components look like line noise. The data are average-referenced, as
+ICLabel's training data were. The suggestions are a starting point: check the template plots in
+02_corrmap (step 2) and change CORRMAP_TEMPLATES in config.py if needed.
 
-All probabilities are saved to <OUT_ROOT>/iclabel_probabilities.csv.
+All probabilities are saved to <OUT_ROOT>/iclabel_probabilities_<session>.csv.
 
 Usage (on UCloud, in the riseup_preproccesing folder):
-    uv run python python/Yoav/scripts/suggest_corrmap_templates.py
+    uv run python python/Yoav/scripts/suggest_corrmap_templates.py session03
 """
 
 import sys
@@ -38,13 +40,18 @@ CLASSES = ["brain", "muscle", "eye", "heart", "line_noise", "channel_noise", "ot
 mne.set_log_level("error")
 warnings.filterwarnings("ignore", module="mne_icalabel")
 
+session = sys.argv[1]  # e.g. session03
 rows = []
-for ica_file in sorted(cfg.OUT_ROOT.glob("sub-*/sub-*_ica.fif")):
-    subject = ica_file.name.removesuffix("_ica.fif")
+for subject in cfg.session_subjects(session):
+    ica_file = cfg.out_dir(subject) / f"{subject}_ica.fif"
+    if not ica_file.exists():
+        print(f"{subject}: no ICA yet (run 01_ica first), left out", flush=True)
+        continue
     ica = mne.preprocessing.read_ica(ica_file)
     raw = mne.io.read_raw(ica_file.parent / f"{subject}_prep_raw.fif", preload=True)
-    raw.filter(1, 100)  # ICLabel expects data high-passed at 1 Hz, like the data the ICA learned from
-    probabilities = iclabel_label_components(raw, ica, inplace=False)  # (components, classes)
+    raw.filter(1, cfg.ICA_LP)  # the band the ICA learned from (1 Hz high-pass, 40 Hz low-pass)
+    pieces = mne.make_fixed_length_epochs(raw, duration=1.0, reject_by_annotation=True, preload=True)  # skips BAD_
+    probabilities = iclabel_label_components(pieces, ica, inplace=False)  # (components, classes)
     maps = pd.DataFrame(ica.get_components(), index=ica.ch_names)  # (channels, components)
     for component, p in enumerate(probabilities):
         rows.append({"subject": subject, "component": component, **dict(zip(CLASSES, p.round(3))),
@@ -53,7 +60,7 @@ for ica_file in sorted(cfg.OUT_ROOT.glob("sub-*/sub-*_ica.fif")):
     print(f"{subject}: {len(probabilities)} components labelled", flush=True)
 
 table = pd.DataFrame(rows)
-table.to_csv(cfg.OUT_ROOT / "iclabel_probabilities.csv", index=False)
+table.to_csv(cfg.OUT_ROOT / f"iclabel_probabilities_{session}.csv", index=False)
 
 candidates = {
     "eye_blink": ("eye", table["same_sign_Fp"] & ~table["opposite_sign_F7_F8"]),
