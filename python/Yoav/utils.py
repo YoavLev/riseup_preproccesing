@@ -1,7 +1,10 @@
 """Python versions of the two EEGLAB functions used in the reference pipeline
 (Stropahl et al., 2018, supplementary material): pop_firws (filtering) and pop_jointprob
-(rejecting unusual epochs before ICA).
+(rejecting unusual epochs before ICA); the automatic bad-channel check; and the plot of all
+component maps in one figure.
 """
+
+import re
 
 import numpy as np
 from scipy.signal import firwin, oaconvolve
@@ -123,3 +126,26 @@ def find_bad_channels(raw, z_max=5.0, corr_min=0.4, corr_fraction=0.5, flat_uv=1
         reasons.append(" ".join(reason))
     table["reason"] = reasons
     return table.round(3)
+
+
+def plot_component_maps(ica, title, notes=None, removed=()):
+    """The scalp maps of all components of one ICA in a single figure (7 per row).
+
+    One figure per participant keeps the number of output files small (MNE would otherwise
+    split more than 20 components over several figures).
+    notes:   {component: text}, written under the component's name (e.g. why it is removed);
+    removed: components whose name is drawn in red (the ones taken out of the data).
+    """
+    notes = notes or {}
+    figure = ica.plot_components(ncols=7, nrows="auto", show=False)
+    for ax in figure.axes:
+        name = re.fullmatch(r"ICA(\d+)", ax.get_title())  # MNE names the maps ICA000, ICA001, ...
+        if name is None:
+            continue
+        component = int(name.group(1))
+        if component in notes:
+            ax.set_title(f"{ax.get_title()}\n{notes[component]}", fontsize=10)
+        if component in removed:
+            ax.title.set_color("tab:red")
+    figure.suptitle(title)
+    return figure

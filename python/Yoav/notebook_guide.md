@@ -66,7 +66,7 @@ MNE counts components from **0** (EEGLAB from 1).
 
 **3. CORRMAP.** For each template, finds components with a similar scalp map (correlation ≥ 0.8) in every participant, in two rounds (template, then the average of the first-round matches).
 
-**4. Save** per participant: `_badcomps.csv` (CORRMAP matches plus `EXTRA_EXCLUDE` from `config.py`) and `_badcomps.png`.
+**4. Save** per participant: `_badcomps.csv` (CORRMAP matches plus `EXTRA_EXCLUDE` from `config.py`), and `_ica_components.png` redrawn with the removed components in red.
 
 ---
 
@@ -87,5 +87,5 @@ MNE counts components from **0** (EEGLAB from 1).
 ## Order of work
 
 1. Run `01_ica` for every participant (fill in bad channels as you go).
-2. Look at the component PNGs, choose the templates, run `02_corrmap`. Review `_badcomps.png`; add anything missed to `EXTRA_EXCLUDE` and re-run `02_corrmap`.
+2. Look at the component PNGs, choose the templates, run `02_corrmap`. Review the red components in `_ica_components.png`; add anything missed to `EXTRA_EXCLUDE` and re-run `02_corrmap`.
 3. Run `03_clean` for every participant.
