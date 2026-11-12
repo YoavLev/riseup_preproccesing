@@ -10,13 +10,17 @@ the effect of that one setting can be seen. Variants:
   (extended, ortho=False, max_iter=1000, as in s02) instead of MNE's Infomax. Picard fits the
   same model (extended Infomax) but stops when it has converged. MNE's Infomax stops at 500
   iterations, which every 01_ica fit reached, so they may not have converged.
+- "mne-filter": as 01_ica (1-40 Hz, 250 Hz, extended Infomax), but filtered with MNE's filter()
+  (default FIR design) instead of the EEGLAB-style Hann filters (firws_filter). The recordings
+  drift slowly by several mV; firws_filter (order 500) attenuates frequencies near 0 Hz by only
+  ~38 dB, so tens of µV of drift stay in the ICA copy. MNE's filter attenuates them by 75-300 dB.
 Everything else is as in 01_ica: input <sub>_prep_raw.fif (bad channels interpolated, average
 reference, breaks and BAD_amplitude marked), EEGLAB-style FIR filters, 1 s dummy epochs,
 joint-probability rejection at 3 SD, same number of components, same random seed.
 
 To compare with the current fit (01_ica), every component of both fits gets an ICLabel label and
 its best match in the other fit (largest |correlation| of the scalp maps). ICLabel gets the band
-the ICA learned from (1-40 Hz for the current and the picard fit, 1-100 Hz for the 1-100Hz fit).
+the ICA learned from (1-100 Hz for the 1-100Hz fit, otherwise 1-40 Hz, always with MNE's filter).
 
 Outputs, in derivatives/ica_test/<sub>/<variant>/ (nothing in derivatives/preproc is changed):
 - <sub>_ica_<variant>.fif      the new ICA;
@@ -47,7 +51,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import config as cfg  # noqa: E402
 from utils import firws_filter, jointprob_keep, plot_component_maps  # noqa: E402
 
-VARIANTS = ["1-100Hz", "picard"]
+VARIANTS = ["1-100Hz", "picard", "mne-filter"]
 LP_WIDE = 100  # low-pass of the 1-100Hz training copy [Hz]
 NOTCH = [50, 100]  # mains frequency and its harmonic [Hz]
 PICARD_MAX_ITER = 1000  # as in s02_erp_ica
@@ -76,6 +80,9 @@ if variant == "1-100Hz":  # notch, then 1-100 Hz, at 500 Hz
     scale = raw.info["sfreq"] / cfg.ICA_SRATE  # 2: twice the samples per second, so twice the filter order
     firws_filter(train, LP_WIDE, "lowpass", int(cfg.ICA_LP_ORDER * scale))
     firws_filter(train, cfg.ICA_HP, "highpass", int(cfg.ICA_HP_ORDER * scale))
+elif variant == "mne-filter":  # 1-40 Hz with MNE's default FIR filter, then 250 Hz
+    train.filter(cfg.ICA_HP, cfg.ICA_LP, picks=["eeg", "eog"])
+    train.resample(cfg.ICA_SRATE)
 else:  # as in 01_ica: low-pass 40 Hz, 250 Hz, high-pass 1 Hz
     firws_filter(train, cfg.ICA_LP, "lowpass", cfg.ICA_LP_ORDER)
     train.resample(cfg.ICA_SRATE)
