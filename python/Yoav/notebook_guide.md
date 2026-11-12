@@ -10,7 +10,7 @@ The preprocessing follows the **reference pipeline** the lab uses for ICA: Strop
 | — (next step) | `04_spatial_filter.ipynb` | once **per participant** | Uses ICA as a spatial filter: saves a PNG of every kept component plus one overview PNG with all their scalp maps for the review (no automatic scoring; visual and motor components are chosen by eye) (`spatial_filter_review/<session>/`); after the choice (`SPATIAL_FILTER_CHOICE`), computes their envelopes |
 
 - **Settings:** every constant is in `config.py`, with the name it has in the reference scripts in brackets (e.g. `[ana01: LP]`).
-- **Helpers:** `utils.py` has Python versions of two EEGLAB functions: `firws_filter` (= `pop_firws`) and `jointprob_keep` (= `pop_jointprob`).
+- **Helpers:** `utils.py` has Python versions of two EEGLAB functions: `firws_filter` (= `pop_firws`; no longer used by the notebooks, see `config.py`, Filters) and `jointprob_keep` (= `pop_jointprob`).
 - **Open questions** about the adaptation: `ica_reference_questions.md`.
 - **Data:** the BIDS dataset on UCloud (`/work/RiseTogetherEEG/VideoGameParadigm-EEG` or `/work/VideoGameParadigm-EEG`, depending on how it is mounted; read-only), read with `rt_bids` (the dataset's `code/rt_bids.py`). Participants are `sub-NNN`; their session is `group` in `participants.tsv`.
 - **Outputs:** `/work/YoavLevy#3923/derivatives/preproc/sub-NNN/` (`OUT_ROOT` in `config.py`); executed notebooks and script output in `/work/YoavLevy#3923/logs/`.
@@ -76,7 +76,7 @@ MNE counts components from **0** (EEGLAB from 1).
 
 **2. Remove the components** from the 500 Hz data. The ICA was learned on the 250 Hz copy; its weights are a fixed spatial unmixing, so they apply to the original data (as the reference writes the weights back to the raw data). The overlay plot shows before vs. after: blinks should disappear, the rest barely change.
 
-**3. Filter** as in `ana03`: low-pass 40 Hz (order 100), then high-pass 0.1 Hz (order 500). No re-referencing: the data stay referenced to the mastoids (the recording reference). (The 0.1 Hz high-pass barely filters with this order; see question 9.)
+**3. Filter** 0.1–40 Hz (the cut-offs of `ana03`) with MNE's `filter()`; the reference's fixed-order filters cannot remove the slow mV drift of the recordings. No re-referencing: the data stay referenced to the mastoids (the recording reference). (See question 9.)
 
 **4. Save** the clean data (`_clean_raw.fif`, input for the analysis), an HTML report (data and spectra before/after, ICA), and a row in `preprocessing_summary.csv` (bad channels, rejected pieces, components, duration) for the Methods.
 

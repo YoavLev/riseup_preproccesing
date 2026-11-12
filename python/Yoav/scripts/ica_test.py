@@ -1,5 +1,9 @@
 """Test: does a change to the ICA give cleaner components? Refits one participant with one change.
 
+Written when 01_ica still used the reference's EEGLAB-style filters (firws_filter); the variants
+below are described relative to that. Since 2026-11-12, 01_ica uses MNE's filter (= "mne-filter"),
+so after 01_ica is rerun, "current" means that.
+
 The lab's s02_erp_ica notebook (RiseTogether-analysis) gets cleaner-looking components than
 01_ica. This script refits one participant with one of its settings and changes nothing else, so
 the effect of that one setting can be seen. Variants:
@@ -55,6 +59,7 @@ VARIANTS = ["1-100Hz", "picard", "mne-filter"]
 LP_WIDE = 100  # low-pass of the 1-100Hz training copy [Hz]
 NOTCH = [50, 100]  # mains frequency and its harmonic [Hz]
 PICARD_MAX_ITER = 1000  # as in s02_erp_ica
+FIRWS_LP_ORDER, FIRWS_HP_ORDER = 100, 500  # the reference's filter orders (01_ica used them until 2026-11-12)
 CLASSES = ["brain", "muscle", "eye", "heart", "line_noise", "channel_noise", "other"]  # ICLabel's order
 
 mne.set_log_level("error")
@@ -78,15 +83,15 @@ train = raw.copy()
 if variant == "1-100Hz":  # notch, then 1-100 Hz, at 500 Hz
     train.notch_filter(NOTCH, picks=["eeg", "eog"])
     scale = raw.info["sfreq"] / cfg.ICA_SRATE  # 2: twice the samples per second, so twice the filter order
-    firws_filter(train, LP_WIDE, "lowpass", int(cfg.ICA_LP_ORDER * scale))
-    firws_filter(train, cfg.ICA_HP, "highpass", int(cfg.ICA_HP_ORDER * scale))
+    firws_filter(train, LP_WIDE, "lowpass", int(FIRWS_LP_ORDER * scale))
+    firws_filter(train, cfg.ICA_HP, "highpass", int(FIRWS_HP_ORDER * scale))
 elif variant == "mne-filter":  # 1-40 Hz with MNE's default FIR filter, then 250 Hz
     train.filter(cfg.ICA_HP, cfg.ICA_LP, picks=["eeg", "eog"])
     train.resample(cfg.ICA_SRATE)
 else:  # as in 01_ica: low-pass 40 Hz, 250 Hz, high-pass 1 Hz
-    firws_filter(train, cfg.ICA_LP, "lowpass", cfg.ICA_LP_ORDER)
+    firws_filter(train, cfg.ICA_LP, "lowpass", FIRWS_LP_ORDER)
     train.resample(cfg.ICA_SRATE)
-    firws_filter(train, cfg.ICA_HP, "highpass", cfg.ICA_HP_ORDER)
+    firws_filter(train, cfg.ICA_HP, "highpass", FIRWS_HP_ORDER)
 
 # --- 2. Dummy epochs and rejection, as in 01_ica ---
 epochs = mne.make_fixed_length_epochs(train, duration=cfg.ICA_EPOCH_LENGTH, reject_by_annotation=True,

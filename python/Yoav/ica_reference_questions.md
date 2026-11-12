@@ -26,7 +26,10 @@ A filter order is counted in samples, so the same number gives a different filte
 - **0.1 Hz high-pass: barely filters** (it keeps 90% of the offset at 0 Hz, also in the reference). The filter is too short for such a low frequency.
 - **Does it matter?** Not for the envelopes: they are band-passed at 8–12 / 13–30 Hz, which removes the offset. It only makes the "segment image" panel in the component PNGs useless.
 
-**Keep as is, or make the high-pass work (longer filter, or remove the mean first)?**
+**Changed 2026-11-12 (confirm with the supervisor): all filters are now MNE's `filter()`**, same cut-offs. Reason: the recordings drift slowly by several mV (sub-016: C4 6.8 mV SD before filtering), and it mattered for the ICA, not only for the 0.1 Hz high-pass:
+- The ICA copy's 1 Hz high-pass (order 500 at 250 Hz, 2 s long) lets ~1/80 of very slow drift through (−38 dB near 0 Hz): ~80 µV on C4, more than the EEG. 80% of the ICA training variance was drift, and about ten of 26 components were copies of it. Removing the channel mean first does not help (the drift wanders).
+- With MNE's filter (75–300 dB near 0 Hz), sub-016's ICA had 15 ICLabel brain components instead of 5, and 1 pair of near-identical maps instead of 9 (`scripts/ica_test.py sub-016 mne-filter`).
+- The 0.1 Hz high-pass (order 500 at 500 Hz) attenuates only 0.9 dB below 0.5 Hz, so it did not filter.
 
 ### 10. Rejecting unusual 1 s pieces before ICA (Python version)
 MNE has no `pop_jointprob`, so `utils.jointprob_keep` rebuilds EEGLAB's method (3 SD). Numbers can differ slightly from EEGLAB. Session01 rejected 3–16% of the pieces (172–778 of 4964). **Acceptable?**

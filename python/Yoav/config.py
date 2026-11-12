@@ -91,12 +91,17 @@ BREAK_MIN_DURATION = 15.0  # gaps between trials longer than this (s) are marked
 BAD_SEGMENT_WINDOW = 1.0  # window length [s]
 BAD_SEGMENT_SD_UV = 50.0  # threshold [µV]
 
+# --- Filters ---
+# All filtering uses MNE's filter() (default FIR design: the filter length follows from the cut-off).
+# Not the reference's fixed filter orders (ana01/ana03: LP_ord 100, HP_ord 500; EEGLAB pop_firws, Hann
+# window): the recordings drift slowly by several mV, and a 1 Hz high-pass only 2 s long (order 500 at
+# 250 Hz) lets ~1/80 of that drift through (tens of µV, more than the EEG); the 0.1 Hz high-pass of
+# order 500 hardly filters at all. MNE's filters are long enough. See ica_reference_questions.md #9.
+
 # --- ICA training copy (ana01_ICA.m) ---
 ICA_LP = 40  # low-pass cut-off [Hz], only for ICA                      [ana01: LP]
-ICA_LP_ORDER = 100  # low-pass filter order                              [ana01: LP_ord]
 ICA_SRATE = 250  # downsample the copy for ICA [Hz]                      [ana01: SRATE]
 ICA_HP = 1  # high-pass cut-off [Hz], only for ICA                       [ana01: HP]
-ICA_HP_ORDER = 500  # high-pass filter order                             [ana01: HP_ord]
 ICA_EPOCH_LENGTH = 1.0  # dummy epochs of 1 s                            [ana01: eeg_regepochs 'recurrence', 1]
 ICA_PRUNE = 3  # reject dummy epochs with joint probability > 3 SD       [ana01: PRUNE]
 ICA_PCA = True  # reduce dimensions with PCA before ICA                  [ana01: PCA]
@@ -127,9 +132,7 @@ EXTRA_EXCLUDE = {
 
 # --- Analysis data (ana03_preprocessing.m) ---
 LP = 40  # low-pass cut-off [Hz]                                         [ana03: LP_erp]
-LP_ORDER = 100  # low-pass filter order                                  [ana03: LP_ord]
 HP = 0.1  # high-pass cut-off [Hz]                                       [ana03: HP_erp]
-HP_ORDER = 500  # high-pass filter order                                 [ana03: HP_ord]
 # Recorded against the mastoids (confirmed); re-referenced to the common average in 01_ica (REFERENCE above),
 # unlike the reference pipeline. M1/M2 themselves are removed from the data (DROP_CHANNELS).
 
