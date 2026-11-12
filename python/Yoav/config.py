@@ -113,11 +113,10 @@ RANDOM_STATE = 97  # fixed seed so ICA gives the same result every run
 # component plots of all participants (01_ica saves them as PNG).
 # Note: MNE counts components from 0, EEGLAB from 1 (EEGLAB component 1 = MNE component 0).
 CORRMAP_TEMPLATES = {
-    # Empty (2026-11-12): the ICAs are refitted with MNE's filters, so component numbers changed and the
-    # earlier templates (session03: eye_blink sub-013 5, lateral_eye sub-016 9) no longer apply.
-    # Choose new ones from the new _ica_components.png (or scripts/suggest_corrmap_templates.py).
-    # "eye_blink": (subject, component),    [ana02: blink_set, blink_comp]
-    # "lateral_eye": (subject, component),  [ana02: eyemov_set, eyemov_comp]
+    # session03, 2026-11-12, ICAs fitted with MNE's filters: suggested by scripts/suggest_corrmap_templates.py
+    # session03 (ICLabel); check the template plots in 02_corrmap, step 2.
+    "eye_blink": ("sub-013", 1),  # ICLabel eye p = 1.00      [ana02: blink_set, blink_comp]
+    "lateral_eye": ("sub-014", 1),  # ICLabel eye p = 1.00    [ana02: eyemov_set, eyemov_comp]
     # heartbeat: [ana02: heart_set, heart_comp]; left out so far (no clear heart component).
     # muscle: not removed (supervisor, 2026-11-11): removing muscle components can also remove brain
     #   signal. Muscle stays in the data: watch the beta band (central components, tap rate, EMG).
