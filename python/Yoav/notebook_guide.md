@@ -87,5 +87,5 @@ MNE counts components from **0** (EEGLAB from 1).
 ## Order of work
 
 1. Run `01_ica` for every participant (fill in bad channels as you go).
-2. Look at the component PNGs, choose the templates, run `02_corrmap`. Review the red components in `_ica_components.png`; add anything missed to `EXTRA_EXCLUDE` and re-run `02_corrmap`.
+2. Look at the component PNGs, choose the templates, run `02_corrmap`. Review the red components in `_ica_components.png`; add anything missed to `EXTRA_EXCLUDE` (and false matches to `EXTRA_KEEP`) and re-run `02_corrmap`.
 3. Run `03_clean` for every participant.

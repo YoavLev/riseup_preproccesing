@@ -124,7 +124,14 @@ CORRMAP_TEMPLATES = {
 CORRMAP_THRESHOLD = 0.8  # correlation threshold                         [ana02: 'th', '0.8']
 # Extra components to remove per participant after visual review (beyond what CORRMAP found)
 EXTRA_EXCLUDE = {
-    # "sub-001": [],
+    # session03, 2026-11-12: ICLabel eye p >= 0.8, maps fit neither template; checked by eye
+    "sub-013": [7],
+    "sub-015": [8],
+    "sub-018": [13],
+}
+# Components CORRMAP found that are kept anyway, after visual review (false matches)
+EXTRA_KEEP = {
+    "sub-017": [16],  # matched the blink template, but not a blink (ICLabel: other 0.80, eye 0.06); 2026-11-12
 }
 
 # --- Analysis data (ana03_preprocessing.m) ---
