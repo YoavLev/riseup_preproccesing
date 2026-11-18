@@ -8,7 +8,7 @@ The ICA cleaning follows the **reference pipeline** the lab uses: Stropahl, Baue
 | `ana02_corrmap.m` | `02_corrmap.ipynb` | once per session | Finds the artifact components with CORRMAP |
 | `ana03_preprocessing.m` | `03_clean.ipynb` | per participant | Removes the components and filters the data |
 | — | `04a_localizer_ica.ipynb` | per participant | A separate ICA on each localizer task (motor: bubble popping; visual: instruction video), fitted on the clean data; PNGs for choosing a visual and a motor component |
-| — | `04_spatial_filter.ipynb` | per participant | Overview PNG of the kept session-ICA components; after the choice (`SPATIAL_FILTER_CHOICE`), the envelopes of the chosen components |
+| — | `04_spatial_filter.ipynb` | per participant | Overview PNG of the kept session-ICA components; after the choice (`SPATIAL_FILTER_CHOICE`, from the session or a localizer ICA), the envelopes of the chosen components at 25 Hz |
 
 - **Settings:** every constant is in `config.py`, with its name in the reference scripts in brackets (e.g. `[ana01: LP]`).
 - **Helpers (`utils.py`):** `jointprob_keep` (= EEGLAB `pop_jointprob`), `find_bad_channels` (PREP criteria, adapted), `plot_component_maps`; `firws_filter` (= `pop_firws`) is no longer used.
@@ -66,7 +66,7 @@ Per participant, on the clean data, one ICA per localizer (`LOCALIZERS` in `conf
 
 ## `04_spatial_filter.ipynb`: envelopes
 
-Overview PNG of the kept session-ICA components. After the choice is written into `SPATIAL_FILTER_CHOICE` (`{area: (component, band)}`), band-passes each chosen component (alpha 8–12, mu 8–12, beta 13–30 Hz) and takes its Hilbert envelope on the continuous data; saved per area. (To be adapted so a component can come from a localizer ICA.)
+Overview PNG of the kept session-ICA components. After the choice is written into `SPATIAL_FILTER_CHOICE` (`{area: (ICA, component, band)}`, ICA = `"session"`, `"motor"` or `"visual"`), takes each chosen component's time course on the clean data, band-passes it (alpha 8–12, mu 8–12, beta 13–30 Hz), takes its Hilbert envelope on the continuous data and downsamples it to `ENVELOPE_SFREQ` (25 Hz, so cRQA stays feasible). Saved per area as `<sub>_<area>_<band>_<ICA>_envelope_raw.fif`, with all events.
 
 ## Order of work
 

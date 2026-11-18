@@ -161,8 +161,14 @@ SPATIAL_FILTER_BANDS = {
     "visual": {"alpha": (8, 12)},
     "motor": {"mu": (8, 12), "beta": (13, 30)},
 }
-# Chosen after the review with the supervisor: {area: (component, band of the envelope)}, e.g.
-# "sub-001": {"visual": (5, "alpha"), "motor": (8, "beta")}. Envelopes are computed only for these.
+# Chosen after the review with the supervisor: {area: (ICA, component, band of the envelope)}, where ICA is
+# "session" (the ICA of 01_ica) or a localizer ICA of 04a_localizer_ica ("motor" or "visual"), e.g.
+# "sub-013": {"visual": ("session", 5, "alpha"), "motor": ("motor", 3, "beta")}.
+# Every participant of a session needs the same areas (cRQA pairs them). Envelopes are computed only for these.
 SPATIAL_FILTER_CHOICE = {
-    # "sub-001": {},
+    # "sub-013": {},
 }
+# Sampling rate of the saved envelopes [Hz]. cRQA compares every time point with every other one, so its cost grows
+# with the square of the length: a 300 s trial has 150 000 points at 500 Hz but 7 500 at 25 Hz.
+# The envelopes change slowly, so little is lost (resampling low-passes at half this rate, 12.5 Hz).
+ENVELOPE_SFREQ = 25
