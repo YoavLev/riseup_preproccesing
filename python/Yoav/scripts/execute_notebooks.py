@@ -1,4 +1,4 @@
-"""Run a per-participant notebook (01_ica, 03_clean or 04_spatial_filter) for every participant
+"""Run a per-participant notebook (01_ica, 03_clean, 04a_localizer_ica or 04_spatial_filter) for every participant
 of a session, without opening it. Each run is saved, with its outputs, to
 <LOG_DIR>/<notebook>/<notebook>_<sub-NNN>.ipynb; the notebook in the repo stays without outputs.
 

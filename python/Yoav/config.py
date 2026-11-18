@@ -140,6 +140,20 @@ HP = 0.1  # high-pass cut-off [Hz]                                       [ana03:
 # Recorded against the mastoids (confirmed); re-referenced to the common average in 01_ica (REFERENCE above),
 # unlike the reference pipeline. M1/M2 themselves are removed from the data (DROP_CHANNELS).
 
+# --- Localizer ICAs (04a_localizer_ica; supervisor's request, 2026-11-18) ---
+# A separate ICA on each localizer task, fitted on the clean data (03_clean, eye components already removed),
+# with the same settings as 01_ica (ICA_HP, ICA_LP, ICA_SRATE, ICA_EPOCH_LENGTH, ICA_PRUNE, RANDOM_STATE).
+# The visual and motor components are chosen from these, then used as spatial filters on the game trials:
+# the filters are learned from data the analysis does not test.
+# Each window: (regular expression of the start annotation, of the end annotation), searched in each recording.
+LOCALIZERS = {
+    # bubble popping: the same bubbles on all six iPads, tapped with the fingers
+    "motor": (r"^TRIAL_START/motor_baseline/", r"^TRIAL_END/motor_baseline/"),
+    # instruction video: from its first frame on this participant's screen (photodiode) to the end of the phase
+    "visual": (r"^DISPLAY_ONSET/video_first_frame$", r"^MARKER/code \d+ stop \(instructions_video\)$"),
+}
+LOCALIZER_MARGIN = 10.0  # s of data kept on each side while filtering (no filter edge effects), then cut off
+
 # --- ICA as a spatial filter (04_spatial_filter) ---
 # Bands of the envelopes, per area. The game has no sound, so no auditory area.
 # Components are chosen by eye (no automatic scoring), see SPATIAL_FILTER_CHOICE.
