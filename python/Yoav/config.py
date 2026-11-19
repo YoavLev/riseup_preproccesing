@@ -179,3 +179,17 @@ SPATIAL_FILTER_TRANSITION = 1.0
 # with the square of the length: a 300 s trial has 150 000 points at 500 Hz but 7 500 at 25 Hz.
 # The envelopes change slowly, so little is lost (resampling low-passes at half this rate, 12.5 Hz).
 ENVELOPE_SFREQ = 25
+
+# --- cRQA (05_crqa) ---
+# Results go to their own folder, next to preproc: derivatives/crqa/<session>/
+CRQA_ROOT = OUT_ROOT.parent / "crqa"
+# Measures near the line of synchronisation (decided 2026-11-19): whole-plot %REC/%DET cannot tell coupled from
+# unrelated smooth envelopes (tested on synthetic data); coupling shows only near lag 0 (Coco et al. 2021, diagonal profile).
+CRQA_LAG_BAND_S = 0.5  # %REC and %DET on the diagonals with |lag| <= 0.5 s
+CRQA_MIN_LINE_S = 0.4  # shortest diagonal line for %DET (10 samples at 25 Hz); 2 samples gave ~98% DET for anything
+CRQA_PROFILE_S = 5.0  # diagonal recurrence profile saved for lags -5..+5 s
+# Parameters chosen once per band, from all windows of all pairs in the session (both roles pooled):
+CRQA_TARGET_REC = 5.0  # radius: fixed, so that about 5% of all cross-recurrence points are recurrent (chance level)
+CRQA_AMI_MAX_LAG_S = 2.0  # delay tau: first minimum of the auto mutual information within 2 s
+CRQA_MAX_DIM = 8  # embedding dimension m: false nearest neighbours for m = 1..8 ...
+CRQA_FNN_THRESHOLD = 0.10  # ... smallest m with at most 10% false neighbours
