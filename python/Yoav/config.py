@@ -166,8 +166,15 @@ SPATIAL_FILTER_BANDS = {
 # "sub-013": {"visual": ("session", 5, "alpha"), "motor": ("motor", 3, "beta")}.
 # Every participant of a session needs the same areas (cRQA pairs them). Envelopes are computed only for these.
 SPATIAL_FILTER_CHOICE = {
-    # "sub-013": {},
+    # session03, 2026-11-19, trial of the cRQA chain (chosen by Yoav from the PNGs and tests/component_scores.py)
+    "sub-015": {"visual": ("session", 4, "alpha"), "motor": ("session", 13, "beta")},
+    "sub-017": {"visual": ("session", 7, "alpha"), "motor": ("session", 19, "beta")},
 }
+# Width of the band-pass slopes [Hz], both sides, all bands. MNE's default is wider (beta 13-30 Hz: lower slope
+# 3.25 Hz, still -6 dB at 11.4 Hz), so mu/alpha around 11-12 Hz leaked into the beta envelope (e.g. sub-017 ICA019,
+# whose mu is stronger than its beta). With 1 Hz the -6 dB points are 7.5/12.5 Hz (alpha) and 12.5/30.5 Hz (beta):
+# the bands no longer overlap. The filter is then 3.3 s long, no problem on the continuous data.
+SPATIAL_FILTER_TRANSITION = 1.0
 # Sampling rate of the saved envelopes [Hz]. cRQA compares every time point with every other one, so its cost grows
 # with the square of the length: a 300 s trial has 150 000 points at 500 Hz but 7 500 at 25 Hz.
 # The envelopes change slowly, so little is lost (resampling low-passes at half this rate, 12.5 Hz).
