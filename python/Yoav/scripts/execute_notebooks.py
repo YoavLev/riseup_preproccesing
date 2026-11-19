@@ -1,5 +1,5 @@
 """Run a per-participant notebook (01_ica, 03_clean, 04a_localizer_ica or 04_spatial_filter) for every participant
-of a session, or a per-session notebook (02_corrmap, 05_crqa) once, without opening it. Each run is saved, with its outputs, to
+of a session, or a per-session notebook (02_corrmap, 05_windows) once, without opening it. Each run is saved, with its outputs, to
 <LOG_DIR>/<notebook>/<notebook>_<sub-NNN>.ipynb; the notebook in the repo stays without outputs.
 
 The participant is passed to the notebook through the environment variable RT_SUBJECT
@@ -17,7 +17,7 @@ Usage (on UCloud, in the riseup_preproccesing folder; with nohup so the run surv
         > "/work/YoavLevy#3923/logs/run/01_ica_session03.txt" 2>&1 &
     uv run python python/Yoav/scripts/execute_notebooks.py 03_clean session01 sub-003   # one participant
     uv run python python/Yoav/scripts/execute_notebooks.py 02_corrmap session01         # all participants at once
-    uv run python python/Yoav/scripts/execute_notebooks.py 05_crqa session03            # all pairs of a session
+    uv run python python/Yoav/scripts/execute_notebooks.py 05_windows session03         # all pairs of a session (then 06_crqa.R)
 """
 
 import json
@@ -104,7 +104,7 @@ def run(notebook, subject):
 
 
 def main(notebook, group, subjects=None, parallel=1):
-    if notebook in ("02_corrmap", "05_crqa"):  # one run per session (the log is named after the session)
+    if notebook in ("02_corrmap", "05_windows"):  # one run per session (the log is named after the session)
         subjects = [group]
     subjects = subjects or cfg.session_subjects(group)
     # the list of this batch, so run_status.py can show who is still waiting
