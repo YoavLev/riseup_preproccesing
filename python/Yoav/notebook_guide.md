@@ -13,7 +13,7 @@ The ICA cleaning follows the **reference pipeline** the lab uses: Stropahl, Baue
 
 - **Settings:** every constant is in `config.py`, with its name in the reference scripts in brackets (e.g. `[ana01: LP]`).
 - **Helpers (`utils.py`):** `jointprob_keep` (= EEGLAB `pop_jointprob`), `find_bad_channels` (PREP criteria, adapted), `plot_component_maps`; `firws_filter` (= `pop_firws`) is no longer used.
-- **Scripts (`scripts/`):** `setup_job.sh` (environment, once per UCloud job); `execute_notebooks.py <notebook> <session> [sub-NNN ...] [--parallel N]` (runs a notebook for everyone in a session); `run_status.py <notebook>` (progress); `suggest_corrmap_templates.py <session>` (ICLabel suggestions for templates); `bad_segments_summary.py <session>`; `localizer_maps_overview.py <session>` (one PNG per localizer with all participants' maps); `ica_test.py` (test variants of the ICA).
+- **Scripts (`scripts/`):** `setup_job.sh` (Python environment, once per UCloud job); `install_r.sh` (R + crqa for `06_crqa.R`, once per UCloud job); `execute_notebooks.py <notebook> <session> [sub-NNN ...] [--parallel N]` (runs a notebook for everyone in a session); `run_status.py <notebook>` (progress); `suggest_corrmap_templates.py <session>` (ICLabel suggestions for templates); `bad_segments_summary.py <session>`; `localizer_maps_overview.py <session>` (one PNG per localizer with all participants' maps); `ica_test.py` (test variants of the ICA).
 - **Open questions** about the adaptation: `ica_reference_questions.md`.
 - **Data:** the BIDS dataset on UCloud (read-only), read with `rt_bids`. Participants are `sub-NNN`; their session is `group` in `participants.tsv`.
 - **Outputs:** `/work/YoavLevy#3923/derivatives/preproc/sub-NNN/` (`OUT_ROOT`); review PNGs in `derivatives/preproc/spatial_filter_review/<session>/`; executed notebooks and run output in `/work/YoavLevy#3923/logs/`.
@@ -77,7 +77,7 @@ Overview PNG of the kept session-ICA components. After the choice is written int
 3. Session time → envelope sample with `rt_bids.from_session_time` (drift and gaps corrected) minus the clean data's `first_samp`; not `crop_session` (it ignores `first_samp`). The share of bad time per window is recorded.
 4. Saves `derivatives/crqa/<session>/windows.csv` and `envelopes.csv`.
 
-`06_crqa.R` (R, `crqa` package; `Rscript 06_crqa.R <session> [cores]`):
+`06_crqa.R` (R, `crqa` package; once per job `bash scripts/install_r.sh`, then `Rscript 06_crqa.R <session> [cores]`):
 1. z-scores each envelope (`scale()`): `optimizeParam()` takes its candidate radii from the values it is given.
 2. `optimizeParam()` per window (delay from AMI, dimension from FNN, radius for 2–5 % recurrence).
 3. One delay, dimension and radius per area: the median over its windows (all roles pooled), fixed for all windows.

@@ -1,4 +1,5 @@
 # 06_crqa.R: cross-recurrence quantification (cRQA) of every pair x area x trial window of one session,
+# with the crqa R package (Coco et al., 2021). Checked against crqa 2.1.0.
 
 # Steps:
 #   1. z-score each envelope (scale(), base R). optimizeParam() takes its candidate radii from the distances
@@ -9,7 +10,8 @@
 #      so no role is favoured). Fixed for all windows, so RR can differ between roles.
 #   4. crqa() on every window with these parameters; the measures are saved as crqa() returns them.
 #
-# Usage (on UCloud, from any folder):
+# Usage (on UCloud, from any folder; once per job first: bash scripts/install_r.sh, which installs R and
+# tells it where the packages are):
 #   Rscript 06_crqa.R session03 [cores]
 # RT_CRQA_ROOT overrides the folder (e.g. for a test copy).
 
@@ -35,11 +37,21 @@ minvertline <- 2      # crqa() default
 tw <- 0               # Theiler window: 0 for cross-recurrence (two different people)
 # optimizeParam() only
 par <- list(method = "crqa", metric = "euclidean", datatype = "continuous",
-            maxlag = 50,            # delay: auto mutual information up to 50 samples (2 s at 25 Hz)
-            typeami = "mindip",     # ... at its first minimum
-            maxEmb = 10,            # embedding dimension: false nearest neighbours for 1..10 dimensions
-            fnnpercent = 10,        # ... add dimensions while each removes more than 1/10 of the first share
-            radiusspan = 100, radiussample = 40,   # radius search grid (help page: radiusspan e.g. 100)
+            # Delay: mutual information of A with itself, B with itself and A with B, for lags 0..50 samples
+            # (0-2 s at 25 Hz). "mindip": the curve with the lowest minimum is taken, and the lag of its lowest
+            # point (the global minimum within maxlag, not the first dip). If the curve keeps falling, this is
+            # the edge of the range (lag ~50): check the delays in crqa_parameters_<session>.csv.
+            maxlag = 50,
+            typeami = "mindip",
+            # Embedding dimension: false nearest neighbours for 1..10 dimensions, per person. Threshold = 1/10 of
+            # the false-neighbour share at dimension 1; the dimension after the last drop larger than that is
+            # taken, and the larger of the two people's dimensions is used.
+            maxEmb = 10,
+            fnnpercent = 10,
+            # Radius: candidate radii from 3 x the median distance between A's and B's values down to 0, in steps
+            # of SD(distances) / radiusspan; a binary search takes the first one with min_rec-max_rec % recurrence.
+            # (optimizeParam() in crqa 2.1.0 does not use a "radiussample" argument.)
+            radiusspan = 100,
             normalize = normalize, rescale = rescale, mindiagline = mindiagline, minvertline = minvertline,
             tw = tw, whiteline = FALSE, recpt = FALSE, side = "both")
 min_rec <- 2          # radius: recurrence rate between 2 % ...
