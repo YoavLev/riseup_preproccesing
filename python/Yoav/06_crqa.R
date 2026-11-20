@@ -1,13 +1,5 @@
 # 06_crqa.R: cross-recurrence quantification (cRQA) of every pair x area x trial window of one session,
-# with the crqa R package (Coco et al., 2021; notes/papers/coco2021_crqa.md).
-#
-# Input (from 05_windows.ipynb), in derivatives/crqa/<session>/:
-#   windows.csv       one row per window: pair, components, condition, round, trial, role, ...
-#   envelopes.csv  the two envelopes of every window (window_id, sample, x_a, x_b), 25 Hz
-# Output, in the same folder:
-#   crqa_parameters_<session>.csv  delay, embedding dimension and radius per window and the ones used per area
-#   crqa_<session>.csv             windows.csv + the crqa() measures (RR, DET, L, maxL, ENTR, rENTR, LAM, TT, ...)
-#
+
 # Steps:
 #   1. z-score each envelope (scale(), base R). optimizeParam() takes its candidate radii from the distances
 #      between the values it is given, so they must be on the same scale as what crqa() compares.
