@@ -59,16 +59,17 @@ for sub in subjects:
     sf = eeg.info["sfreq"]
     data = eeg.get_data(start=int(t0 * sf), stop=int((t0 + EEG_SECONDS) * sf)) * 1e6   # µV
     t = np.arange(data.shape[1]) / sf
-    spacing = 40  # µV between channels
-    fig, ax = plt.subplots(figsize=(11, 8))
+    spacing = 60  # µV between channels
+    fig, ax = plt.subplots(figsize=(11, 10))
     for i, name in enumerate(eeg.ch_names):
         ax.plot(t, data[i] - i * spacing, color="k", lw=0.5)
     ax.set_yticks(-np.arange(len(eeg.ch_names)) * spacing, eeg.ch_names, fontsize=7)
-    ax.set(xlabel="time (s)", xlim=(0, EEG_SECONDS),
+    ax.set(xlabel="time (s)", xlim=(0, EEG_SECONDS + 0.6),
            title=f"{sub}: clean EEG (0.1-40 Hz, average reference, eye components removed), "
                  f"{EEG_SECONDS} s of the first Team trial")
-    ax.plot([EEG_SECONDS - 0.3] * 2, [0, -spacing], color="C3", lw=2)
-    ax.text(EEG_SECONDS - 0.35, -spacing / 2, f"{spacing} µV", color="C3", ha="right", va="center", fontsize=8)
+    # scale bar to the right of the traces
+    ax.plot([EEG_SECONDS + 0.3] * 2, [0, -spacing], color="C3", lw=2)
+    ax.text(EEG_SECONDS + 0.38, -spacing / 2, f"{spacing} µV", color="C3", ha="left", va="center", fontsize=8)
     for s in ("top", "right"):
         ax.spines[s].set_visible(False)
     fig.tight_layout()
