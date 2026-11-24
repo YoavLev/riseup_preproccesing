@@ -20,6 +20,9 @@ suppressMessages({
   library(data.table)
   library(parallel)
 })
+# data.table's own threads (OpenMP) make the forked workers of mclapply() hang (they wait forever on a lock):
+# one thread, the parallel work is done by mclapply() alone
+setDTthreads(1)
 
 args <- commandArgs(trailingOnly = TRUE)
 session <- if (length(args) >= 1) args[1] else "session03"
