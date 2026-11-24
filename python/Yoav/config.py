@@ -185,6 +185,7 @@ ENVELOPE_SFREQ = 25
 # (the cRQA settings are at the top of 06_crqa.R)
 CRQA_ROOT = OUT_ROOT.parent / "crqa"
 # Smoothing of the envelopes before cRQA (05_windows): low-pass at this frequency [Hz], or None (no smoothing).
+# Zero-phase FIR filter with a Hamming window (MNE filter(), firwin design; slope half the cut-off).
 # A narrow band (alpha 8-12 Hz) gives an envelope with fast bumps of ~0.3-1 s (it "beats" at about the band's
 # width) that are unlikely to be shared between two people; a 1 Hz low-pass keeps only the slow ups and downs
 # (see 04, section 3b, panel 4). Applied to the whole 25 Hz envelope before the windows are cut (no edge effects).
