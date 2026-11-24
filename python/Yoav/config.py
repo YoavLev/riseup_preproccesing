@@ -124,9 +124,9 @@ CORRMAP_TEMPLATES = {
         "eye_blink": ("sub-013", 0),  # eye p = 1.00, symmetric frontal map   [ana02: blink_set, blink_comp]
         "lateral_eye": ("sub-014", 1),  # eye p = 1.00, F7/F8 opposite signs    [ana02: eyemov_set, eyemov_comp]
     },
-    "session04": {
-        "eye_blink": None,
-        "lateral_eye": None,
+    "session04": {  # 2026-11-24: ICLabel suggestions, maps checked by eye
+        "eye_blink": ("sub-024", 0),  # eye p = 1.00, symmetric frontal map
+        "lateral_eye": ("sub-019", 1),  # eye p = 1.00, F7/F8 opposite signs
     },
 }
 CORRMAP_THRESHOLD = 0.8  # correlation threshold                         [ana02: 'th', '0.8']
@@ -172,9 +172,8 @@ SPATIAL_FILTER_BANDS = {
 # "sub-013": {"visual": ("session", 5, "alpha"), "motor": ("motor", 3, "beta")}.
 # Every participant of a session needs the same areas (cRQA pairs them). Envelopes are computed only for these.
 SPATIAL_FILTER_CHOICE = {
-    # session03, 2026-11-19, trial of the cRQA chain (chosen by Yoav from the PNGs and tests/component_scores.py)
-    "sub-015": {"visual": ("session", 4, "alpha"), "motor": ("session", 13, "beta")},
-    "sub-017": {"visual": ("session", 7, "alpha"), "motor": ("session", 19, "beta")},
+    # 2026-11-19 (old ICAs, before the dataset's bad channels; numbers no longer valid), chosen by Yoav from the PNGs
+    # and tests/component_scores.py: sub-015 visual 4 / motor 13, sub-017 visual 7 / motor 19 (all alpha / beta).
 }
 # Width of the band-pass slopes [Hz], both sides, all bands. MNE's default is wider (beta 13-30 Hz: lower slope
 # 3.25 Hz, still -6 dB at 11.4 Hz), so mu/alpha around 11-12 Hz leaked into the beta envelope (e.g. sub-017 ICA019,
