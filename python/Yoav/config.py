@@ -134,10 +134,14 @@ CORRMAP_THRESHOLD = 0.8  # correlation threshold                         [ana02:
 # Rule (as on 2026-11-12): ICLabel eye p >= 0.8 and the map fits neither template; checked by eye.
 # (Before 2026-11-24, old ICAs: sub-013 [7], sub-015 [8], sub-018 [13]; numbers no longer valid.)
 EXTRA_EXCLUDE = {
+    # 2026-11-24 (new ICAs): ICLabel eye p >= 0.8, missed by CORRMAP; frontal-pole maps checked by eye
+    "sub-013": [8],   # eye p = 0.90
+    "sub-018": [13],  # eye p = 0.94
 }
 # Components CORRMAP found that are kept anyway, after visual review (false matches)
 # (Before 2026-11-24: sub-017 [16], matched the blink template but not a blink.)
 EXTRA_KEEP = {
+    "sub-017": [15],  # 2026-11-24: matched the blink template, but ICLabel eye p = 0.05 (other 0.81); as on 2026-11-12
 }
 
 # --- Analysis data (ana03_preprocessing.m) ---
