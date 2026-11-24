@@ -113,25 +113,31 @@ RANDOM_STATE = 97  # fixed seed so ICA gives the same result every run
 # component plots of all participants (01_ica saves them as PNG).
 # Note: MNE counts components from 0, EEGLAB from 1 (EEGLAB component 1 = MNE component 0).
 CORRMAP_TEMPLATES = {
-    # session03, 2026-11-12, ICAs fitted with MNE's filters: suggested by scripts/suggest_corrmap_templates.py
-    # session03 (ICLabel); check the template plots in 02_corrmap, step 2.
-    "eye_blink": ("sub-013", 1),  # ICLabel eye p = 1.00      [ana02: blink_set, blink_comp]
-    "lateral_eye": ("sub-014", 1),  # ICLabel eye p = 1.00    [ana02: eyemov_set, eyemov_comp]
+    # One set per session (02_corrmap matches each session to its own templates).
+    # 2026-11-24: ICAs refitted with the dataset's bad channels (channels.tsv, Luke's update): component numbers changed.
+    # Chosen as before: suggested by scripts/suggest_corrmap_templates.py <session> (ICLabel), checked on the template
+    # plots in 02_corrmap, step 2. (Before 2026-11-24, session03: eye_blink sub-013 1, lateral_eye sub-014 1.)
     # heartbeat: [ana02: heart_set, heart_comp]; left out so far (no clear heart component).
     # muscle: not removed (supervisor, 2026-11-11): removing muscle components can also remove brain
     #   signal. Muscle stays in the data: watch the beta band (central components, tap rate, EMG).
+    "session03": {  # 2026-11-24: ICLabel suggestions, maps checked by eye
+        "eye_blink": ("sub-013", 0),  # eye p = 1.00, symmetric frontal map   [ana02: blink_set, blink_comp]
+        "lateral_eye": ("sub-014", 1),  # eye p = 1.00, F7/F8 opposite signs    [ana02: eyemov_set, eyemov_comp]
+    },
+    "session04": {
+        "eye_blink": None,
+        "lateral_eye": None,
+    },
 }
 CORRMAP_THRESHOLD = 0.8  # correlation threshold                         [ana02: 'th', '0.8']
-# Extra components to remove per participant after visual review (beyond what CORRMAP found)
+# Extra components to remove per participant after visual review (beyond what CORRMAP found).
+# Rule (as on 2026-11-12): ICLabel eye p >= 0.8 and the map fits neither template; checked by eye.
+# (Before 2026-11-24, old ICAs: sub-013 [7], sub-015 [8], sub-018 [13]; numbers no longer valid.)
 EXTRA_EXCLUDE = {
-    # session03, 2026-11-12: ICLabel eye p >= 0.8, maps fit neither template; checked by eye
-    "sub-013": [7],
-    "sub-015": [8],
-    "sub-018": [13],
 }
 # Components CORRMAP found that are kept anyway, after visual review (false matches)
+# (Before 2026-11-24: sub-017 [16], matched the blink template but not a blink.)
 EXTRA_KEEP = {
-    "sub-017": [16],  # matched the blink template, but not a blink (ICLabel: other 0.80, eye 0.06); 2026-11-12
 }
 
 # --- Analysis data (ana03_preprocessing.m) ---
@@ -193,3 +199,9 @@ CRQA_ROOT = OUT_ROOT.parent / "crqa"
 # compared. Not decided yet (2026-11-24: tried for the demo). The environment variable RT_SMOOTH_HZ overrides it
 # ("0" = no smoothing).
 CRQA_SMOOTH_HZ = None
+# Sampling rate of the windows after the smoothing [Hz], or None (keep ENVELOPE_SFREQ, 25 Hz). After a low-pass at
+# f Hz (slope f/2: nothing left above 1.5 f), 5 f samples per second keep everything (Nyquist 2.5 f) and drop the
+# redundant samples: at 25 Hz a 1 Hz envelope barely changes from one sample to the next, so almost every recurrent
+# point lies on a diagonal line and %DET is ~98 % for any pair (demo, 2026-11-24). Rule used: 5 x CRQA_SMOOTH_HZ.
+# Output folder then: derivatives/crqa/<session>_smooth<X>hz_<Y>hz/. RT_CRQA_SFREQ overrides it.
+CRQA_SFREQ = None
