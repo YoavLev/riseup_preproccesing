@@ -178,6 +178,27 @@ SPATIAL_FILTER_BANDS = {
 SPATIAL_FILTER_CHOICE = {
     # 2026-11-19 (old ICAs, before the dataset's bad channels; numbers no longer valid), chosen by Yoav from the PNGs
     # and tests/component_scores.py: sub-015 visual 4 / motor 13, sub-017 visual 7 / motor 19 (all alpha / beta).
+    #
+    # 2026-11-24, new ICAs (dataset bad channels), chosen by Claude for the parameter exploration (Yoav to check):
+    # shortlist by scripts/component_candidates.py (rule in its docstring), final pick by eye on the candidate PNGs
+    # (spatial_filter_review/<session>/candidates_<sub>.png). Not the rule's first choice where marked "by eye".
+    # Excluded: sub-016 and sub-018 (no component with a map in the area and a peak >= 1 dB above 1/f, in either area;
+    # sub-016 CP1/CP2 bad, poor contact).
+    "sub-013": {"visual": ("session", 2, "alpha"), "motor": ("session", 18, "beta")},
+    "sub-014": {"visual": ("session", 4, "alpha"),    # by eye: #1 (ICA003) lateral map, peak ~13 Hz above the band
+                "motor": ("session", 21, "beta")},
+    "sub-015": {"visual": ("session", 23, "alpha"),   # by eye: #1 (ICA012) left-right map, looks like mu
+                "motor": ("session", 13, "beta")},    # mostly mu (11.5 Hz), little beta (as on 2026-11-19)
+    "sub-017": {"visual": ("session", 6, "alpha"), "motor": ("session", 19, "beta")},
+    "sub-019": {"visual": ("session", 4, "alpha"), "motor": ("session", 8, "beta")},   # motor: mostly mu, weak beta
+    "sub-020": {"visual": ("session", 10, "alpha"), "motor": ("session", 23, "beta")},
+    "sub-021": {"visual": ("session", 10, "alpha"),   # by eye: #1 (ICA009) lateral map; ICA010 symmetric posterior
+                "motor": ("session", 23, "beta")},
+    "sub-022": {"visual": ("session", 5, "alpha"),
+                "motor": ("session", 15, "beta")},    # by eye: #1 (ICA017) narrow 20 Hz line, not a rhythm
+    "sub-023": {"visual": ("session", 8, "alpha"), "motor": ("session", 9, "beta")},
+    "sub-024": {"visual": ("session", 17, "alpha"),
+                "motor": ("session", 13, "beta")},    # by eye: #1 (ICA024) comb-shaped spectrum (periodic artifact)
 }
 # Width of the band-pass slopes [Hz], both sides, all bands. MNE's default is wider (beta 13-30 Hz: lower slope
 # 3.25 Hz, still -6 dB at 11.4 Hz), so mu/alpha around 11-12 Hz leaked into the beta envelope (e.g. sub-017 ICA019,
