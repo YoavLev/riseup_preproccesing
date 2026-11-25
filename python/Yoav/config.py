@@ -162,6 +162,9 @@ LOCALIZERS = {
     # instruction video: from its first frame on this participant's screen (photodiode) to the end of the phase
     "visual": (r"^DISPLAY_ONSET/video_first_frame$", r"^MARKER/code \d+ stop \(instructions_video\)$"),
 }
+# Start used when a recording has no photodiode onset (session04 has no DISPLAY_ONSET/video_first_frame; 2026-11-25).
+# The phase marker is sent when the video is started, so the window may begin slightly before the first frame.
+LOCALIZER_START_FALLBACK = {"visual": r"^MARKER/code \d+ start \(instructions_video\)$"}
 LOCALIZER_MARGIN = 10.0  # s of data kept on each side while filtering (no filter edge effects), then cut off
 
 # --- ICA as a spatial filter (04_spatial_filter) ---
