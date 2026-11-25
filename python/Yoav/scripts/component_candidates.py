@@ -110,7 +110,7 @@ for sub in cfg.session_subjects(SESSION):
 
     def draw(ax_map, ax_psd, this_ica, comp, r, area, title):
         mne.viz.plot_topomap(this_ica.get_components()[:, comp], this_ica.info, axes=ax_map, show=False, contours=0)
-        ax_map.set_title(title, fontsize=9)
+        ax_map.set_title(title, fontsize=8)
         src = this_ica.get_sources(raw).pick([f"ICA{comp:03d}"])
         psd = src.compute_psd(fmin=1, fmax=40, picks="all", n_fft=1000, reject_by_annotation=True)
         f, p = psd.freqs, 10 * np.log10(psd.get_data()[0])
@@ -140,7 +140,7 @@ for sub in cfg.session_subjects(SESSION):
                 map_r = abs(np.corrcoef(ica.get_components()[:, comp], ref_map)[0, 1])
                 env_r = np.corrcoef(band_envelope(ica, raw, comp, BAND[area]), ref_env)[0, 1]
                 cand.loc[r.name, ["map_r", "env_r"]] = [map_r, env_r]
-                title += f"\nvs current: map |r| {map_r:.2f}, envelope r {env_r:.2f}"
+                title += f"\nvs current: map |r| {map_r:.2f}, env r {env_r:.2f}"
             draw(ax_map, ax_psd, ica, comp, r, area, title)
         if ref is not None:
             draw(axes[row, -2], axes[row, -1], ref_ica, ref[1], ref[2], area,
