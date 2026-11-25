@@ -149,11 +149,31 @@ EXTRA_EXCLUDE = {
     # 2026-11-24 (new ICAs): ICLabel eye p >= 0.8, missed by CORRMAP; frontal-pole maps checked by eye
     "sub-013": [8],   # eye p = 0.90
     "sub-018": [13],  # eye p = 0.94
+    # 2026-11-25, sessions 02/05/06 (same rule; all frontal-pole maps, checked by eye)
+    "sub-008": [23],  # eye p = 0.94
+    "sub-011": [9],   # eye p = 0.81 (borderline; frontal band Fp1-Fp2-F7-F8)
+    "sub-012": [15],  # eye p = 0.99
+    "sub-025": [9],   # eye p = 0.97
+    "sub-027": [15],  # eye p = 0.98
+    "sub-028": [19],  # eye p = 0.93
+    "sub-029": [19],  # eye p = 0.91
+    "sub-032": [20],  # eye p = 0.94
+    "sub-033": [13],  # eye p = 0.98
+    "sub-035": [20],  # eye p = 0.95
+    "sub-036": [17],  # eye p = 0.92
 }
 # Components CORRMAP found that are kept anyway, after visual review (false matches)
 # (Before 2026-11-24: sub-017 [16], matched the blink template but not a blink.)
 EXTRA_KEEP = {
     "sub-017": [15],  # 2026-11-24: matched the blink template, but ICLabel eye p = 0.05 (other 0.81); as on 2026-11-12
+    # 2026-11-25, sessions 02/05/06: matched the blink template, but ICLabel eye p < 0.1 and a broad frontal-central
+    # dipole map rather than a frontal-pole one (same rule as sub-017)
+    "sub-007": [6],   # brain 1.00
+    "sub-008": [19],  # other; eye p = 0.07
+    "sub-009": [9],   # brain 1.00
+    "sub-012": [2, 13],  # brain 0.99 / 0.97; ICA002 is the most blink-like of these (Yoav to check)
+    "sub-026": [8],   # brain 0.99 (frontal-midline maximum)
+    "sub-029": [11],  # brain 1.00
 }
 
 # --- Analysis data (ana03_preprocessing.m) ---
