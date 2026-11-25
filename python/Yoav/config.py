@@ -128,6 +128,18 @@ CORRMAP_TEMPLATES = {
         "eye_blink": ("sub-024", 0),  # eye p = 1.00, symmetric frontal map
         "lateral_eye": ("sub-019", 1),  # eye p = 1.00, F7/F8 opposite signs
     },
+    "session02": {  # 2026-11-25: ICLabel suggestions, maps checked by eye
+        "eye_blink": ("sub-010", 0),  # eye p = 1.00, symmetric frontal map
+        "lateral_eye": ("sub-009", 2),  # eye p = 1.00, F7/F8 opposite signs
+    },
+    "session05": {  # 2026-11-25: ICLabel suggestions, maps checked by eye
+        "eye_blink": ("sub-027", 0),  # eye p = 1.00, symmetric frontal map
+        "lateral_eye": ("sub-026", 1),  # eye p = 1.00, F7/F8 opposite signs
+    },
+    "session06": {  # 2026-11-25: ICLabel suggestions, maps checked by eye
+        "eye_blink": ("sub-032", 0),  # eye p = 0.99, symmetric frontal map
+        "lateral_eye": ("sub-031", 2),  # eye p = 1.00, F7/F8 opposite signs
+    },
 }
 CORRMAP_THRESHOLD = 0.8  # correlation threshold                         [ana02: 'th', '0.8']
 # Extra components to remove per participant after visual review (beyond what CORRMAP found).
@@ -190,11 +202,15 @@ SPATIAL_FILTER_CHOICE = {
     "sub-013": {"visual": ("session", 2, "alpha"), "motor": ("session", 18, "beta")},
     "sub-014": {"visual": ("session", 4, "alpha"),    # by eye: #1 (ICA003) lateral map, peak ~13 Hz above the band
                 "motor": ("session", 21, "beta")},
-    "sub-015": {"visual": ("session", 23, "alpha"),   # by eye: #1 (ICA012) left-right map, looks like mu
+    # sub-015, sub-020 visual: from the visual localizer ICA (2026-11-25): occipital map with a clear alpha peak, where
+    # the session-ICA pick had an untypical map (sub-015 session ICA023 focal right-parietal; sub-020 session ICA010
+    # central). Candidates: spatial_filter_review/<session>/candidates_<sub>_visual.png.
+    "sub-015": {"visual": ("visual", 6, "alpha"),     # localizer ICA006: 2.7 dB at 11 Hz (session ICA023: 2.0 dB)
                 "motor": ("session", 13, "beta")},    # mostly mu (11.5 Hz), little beta (as on 2026-11-19)
     "sub-017": {"visual": ("session", 6, "alpha"), "motor": ("session", 19, "beta")},
     "sub-019": {"visual": ("session", 4, "alpha"), "motor": ("session", 8, "beta")},   # motor: mostly mu, weak beta
-    "sub-020": {"visual": ("session", 10, "alpha"), "motor": ("session", 23, "beta")},
+    "sub-020": {"visual": ("visual", 0, "alpha"),     # localizer ICA000: 3.0 dB at 10.5 Hz (session ICA010: 3.5 dB)
+                "motor": ("session", 23, "beta")},
     "sub-021": {"visual": ("session", 10, "alpha"),   # by eye: #1 (ICA009) lateral map; ICA010 symmetric posterior
                 "motor": ("session", 23, "beta")},
     "sub-022": {"visual": ("session", 5, "alpha"),
@@ -225,10 +241,12 @@ CRQA_ROOT = OUT_ROOT.parent / "crqa"
 # With smoothing, the windows go to their own folder, derivatives/crqa/<session>_smooth<X>hz/, so both can be
 # compared. Not decided yet (2026-11-24: tried for the demo). The environment variable RT_SMOOTH_HZ overrides it
 # ("0" = no smoothing).
-CRQA_SMOOTH_HZ = None
+# Decided 2026-11-25 (after the comparison of 0.5, 1 and 2 Hz): 1 Hz.
+CRQA_SMOOTH_HZ = 1.0
 # Sampling rate of the windows after the smoothing [Hz], or None (keep ENVELOPE_SFREQ, 25 Hz). After a low-pass at
 # f Hz (slope f/2: nothing left above 1.5 f), 5 f samples per second keep everything (Nyquist 2.5 f) and drop the
 # redundant samples: at 25 Hz a 1 Hz envelope barely changes from one sample to the next, so almost every recurrent
 # point lies on a diagonal line and %DET is ~98 % for any pair (demo, 2026-11-24). Rule used: 5 x CRQA_SMOOTH_HZ.
 # Output folder then: derivatives/crqa/<session>_smooth<X>hz_<Y>hz/. RT_CRQA_SFREQ overrides it.
-CRQA_SFREQ = None
+# Decided 2026-11-25: 5 Hz (with CRQA_SMOOTH_HZ = 1).
+CRQA_SFREQ = 5.0
