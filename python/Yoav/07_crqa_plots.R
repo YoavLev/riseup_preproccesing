@@ -37,7 +37,7 @@ sessions <- sort(unique(results$session))
 session_colour <- setNames(c("#0072B2", "#D55E00", "#009E73", "#CC79A7", "#E69F00", "#56B4E9", "#999999",
                              "#000000")[seq_along(sessions)], sessions)
 measures <- c("lagRR_2s", "RR", "DET")
-areas <- intersect(c("visual", "motor"), unique(results$area))
+areas <- sort(unique(results$area))   # "visual" (only occipital alpha is analysed)
 
 # --- Counts ---------------------------------------------------------------------------------------------------
 counts <- results[, .(windows = .N, pairs = uniqueN(paste(session, pair))), by = .(area, role)]

@@ -182,67 +182,42 @@ HP = 0.1  # high-pass cut-off [Hz]                                       [ana03:
 # Recorded against the mastoids (confirmed); re-referenced to the common average in 01_ica (REFERENCE above),
 # unlike the reference pipeline. M1/M2 themselves are removed from the data (DROP_CHANNELS).
 
-# --- Localizer ICAs (04a_localizer_ica; supervisor's request, 2026-11-18) ---
-# A separate ICA on each localizer task, fitted on the clean data (03_clean, eye components already removed),
-# with the same settings as 01_ica (ICA_HP, ICA_LP, ICA_SRATE, ICA_EPOCH_LENGTH, ICA_PRUNE, RANDOM_STATE).
-# The visual and motor components are chosen from these, then used as spatial filters on the game trials:
-# the filters are learned from data the analysis does not test.
-# Each window: (regular expression of the start annotation, of the end annotation), searched in each recording.
-LOCALIZERS = {
-    # bubble popping: the same bubbles on all six iPads, tapped with the fingers
-    "motor": (r"^TRIAL_START/motor_baseline/", r"^TRIAL_END/motor_baseline/"),
-    # instruction video: from its first frame on this participant's screen (photodiode) to the end of the phase
-    "visual": (r"^DISPLAY_ONSET/video_first_frame$", r"^MARKER/code \d+ stop \(instructions_video\)$"),
-}
+# --- Visual localizer ICA (04a_localizer_ica; supervisor's request, 2026-11-18) ---
+# Only occipital alpha is analysed (decided 2026-11-28; no motor components). A separate ICA on the visual
+# localizer, the instruction video (watched without playing), fitted on the clean data (03_clean, eye components
+# already removed), with the same settings as 01_ica (ICA_HP, ICA_LP, ICA_SRATE, ICA_EPOCH_LENGTH, ICA_PRUNE,
+# RANDOM_STATE). One occipital alpha component of it is then used as a spatial filter on the game trials: the filter
+# is learned from data the analysis does not test.
+# Window: (regular expression of the start annotation, of the end annotation), searched in each recording:
+# from the video's first frame on this participant's screen (photodiode) to the end of the phase.
+LOCALIZER = (r"^DISPLAY_ONSET/video_first_frame$", r"^MARKER/code \d+ stop \(instructions_video\)$")
 # Start used when a recording has no photodiode onset (session04 has no DISPLAY_ONSET/video_first_frame; 2026-11-25).
 # The phase marker is sent when the video is started, so the window may begin slightly before the first frame.
-LOCALIZER_START_FALLBACK = {"visual": r"^MARKER/code \d+ start \(instructions_video\)$"}
+LOCALIZER_START_FALLBACK = r"^MARKER/code \d+ start \(instructions_video\)$"
 LOCALIZER_MARGIN = 10.0  # s of data kept on each side while filtering (no filter edge effects), then cut off
 
+# --- Choosing the occipital alpha component (scripts/component_scores.py, component_candidates.py) ---
+# Shortlist rule; the final choice is made by eye on the candidate PNGs. A component is a candidate if
+#   - its strongest electrode is occipital (OCCIPITAL; the cap has no Oz),
+#   - at least POSTERIOR_MIN_SHARE of its map's squared weights lie in the posterior electrodes (POSTERIOR),
+#   - its spectrum is brain-like: 20-40 Hz log-log slope below MAX_SLOPE_20_40 (muscle is flat or rising),
+#   - it has an alpha peak at least MIN_ALPHA_DB above the 1/f background;
+# candidates are ranked by the alpha peak. A participant without a candidate is excluded.
+OCCIPITAL = ["O1", "O2"]
+POSTERIOR = ["O1", "O2", "P7", "P8", "P3", "P4", "Pz"]
+POSTERIOR_MIN_SHARE = 0.35
+MAX_SLOPE_20_40 = -0.5
+MIN_ALPHA_DB = 1.0
+
 # --- ICA as a spatial filter (04_spatial_filter) ---
-# Bands of the envelopes, per area. The game has no sound, so no auditory area.
-# Components are chosen by eye (no automatic scoring), see SPATIAL_FILTER_CHOICE.
-SPATIAL_FILTER_BANDS = {
-    "visual": {"alpha": (8, 12)},
-    "motor": {"mu": (8, 12), "beta": (13, 30)},
-}
-# Chosen after the review with the supervisor: {area: (ICA, component, band of the envelope)}, where ICA is
-# "session" (the ICA of 01_ica) or a localizer ICA of 04a_localizer_ica ("motor" or "visual"), e.g.
-# "sub-013": {"visual": ("session", 5, "alpha"), "motor": ("motor", 3, "beta")}.
-# Every participant of a session needs the same areas (cRQA pairs them). Envelopes are computed only for these.
+ALPHA_BAND = (8, 12)  # band of the envelope [Hz]
+# Chosen by eye from the candidate PNGs: {participant: component of the visual localizer ICA}, e.g. "sub-015": 6.
+# Envelopes are computed only for these; participants missing here are excluded (say why in a comment).
 SPATIAL_FILTER_CHOICE = {
-    # 2026-11-19 (old ICAs, before the dataset's bad channels; numbers no longer valid), chosen by Yoav from the PNGs
-    # and scripts/component_scores.py: sub-015 visual 4 / motor 13, sub-017 visual 7 / motor 19 (all alpha / beta).
-    #
-    # 2026-11-24, new ICAs (dataset bad channels), chosen by Claude for the parameter exploration (Yoav to check):
-    # shortlist by scripts/component_candidates.py (rule in its docstring), final pick by eye on the candidate PNGs
-    # (spatial_filter_review/<session>/candidates_<sub>.png). Not the rule's first choice where marked "by eye".
-    # Excluded: sub-016 and sub-018 (no component with a map in the area and a peak >= 1 dB above 1/f, in either area;
-    # sub-016 CP1/CP2 bad, poor contact).
-    "sub-013": {"visual": ("session", 2, "alpha"), "motor": ("session", 18, "beta")},
-    "sub-014": {"visual": ("session", 4, "alpha"),    # by eye: #1 (ICA003) lateral map, peak ~13 Hz above the band
-                "motor": ("session", 21, "beta")},
-    # sub-015, sub-020 visual: from the visual localizer ICA (2026-11-25): occipital map with a clear alpha peak, where
-    # the session-ICA pick had an untypical map (sub-015 session ICA023 focal right-parietal; sub-020 session ICA010
-    # central). Candidates: spatial_filter_review/<session>/candidates_<sub>_visual.png.
-    "sub-015": {"visual": ("visual", 6, "alpha"),     # localizer ICA006: 2.7 dB at 11 Hz (session ICA023: 2.0 dB)
-                "motor": ("session", 13, "beta")},    # mostly mu (11.5 Hz), little beta (as on 2026-11-19)
-    "sub-017": {"visual": ("session", 6, "alpha"), "motor": ("session", 19, "beta")},
-    "sub-019": {"visual": ("session", 4, "alpha"), "motor": ("session", 8, "beta")},   # motor: mostly mu, weak beta
-    "sub-020": {"visual": ("visual", 0, "alpha"),     # localizer ICA000: 3.0 dB at 10.5 Hz (session ICA010: 3.5 dB)
-                "motor": ("session", 23, "beta")},
-    "sub-021": {"visual": ("session", 10, "alpha"),   # by eye: #1 (ICA009) lateral map; ICA010 symmetric posterior
-                "motor": ("session", 23, "beta")},
-    "sub-022": {"visual": ("session", 5, "alpha"),
-                "motor": ("session", 15, "beta")},    # by eye: #1 (ICA017) narrow 20 Hz line, not a rhythm
-    "sub-023": {"visual": ("session", 8, "alpha"), "motor": ("session", 9, "beta")},
-    "sub-024": {"visual": ("session", 17, "alpha"),
-                "motor": ("session", 13, "beta")},    # by eye: #1 (ICA024) comb-shaped spectrum (periodic artifact)
 }
-# Width of the band-pass slopes [Hz], both sides, all bands. MNE's default is wider (beta 13-30 Hz: lower slope
-# 3.25 Hz, still -6 dB at 11.4 Hz), so mu/alpha around 11-12 Hz leaked into the beta envelope (e.g. sub-017 ICA019,
-# whose mu is stronger than its beta). With 1 Hz the -6 dB points are 7.5/12.5 Hz (alpha) and 12.5/30.5 Hz (beta):
-# the bands no longer overlap. The filter is then 3.3 s long, no problem on the continuous data.
+# Width of the band-pass slopes [Hz], both sides. MNE's default is wider (2 Hz at 8 Hz), which lets theta and beta
+# leak into the alpha envelope; with 1 Hz the -6 dB points are 7.5 and 12.5 Hz. The filter is then 3.3 s long, no
+# problem on the continuous data.
 SPATIAL_FILTER_TRANSITION = 1.0
 # Sampling rate of the saved envelopes [Hz]. cRQA compares every time point with every other one, so its cost grows
 # with the square of the length: a 300 s trial has 150 000 points at 500 Hz but 7 500 at 25 Hz.
