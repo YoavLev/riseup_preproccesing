@@ -212,7 +212,7 @@ SPATIAL_FILTER_BANDS = {
 # Every participant of a session needs the same areas (cRQA pairs them). Envelopes are computed only for these.
 SPATIAL_FILTER_CHOICE = {
     # 2026-11-19 (old ICAs, before the dataset's bad channels; numbers no longer valid), chosen by Yoav from the PNGs
-    # and tests/component_scores.py: sub-015 visual 4 / motor 13, sub-017 visual 7 / motor 19 (all alpha / beta).
+    # and scripts/component_scores.py: sub-015 visual 4 / motor 13, sub-017 visual 7 / motor 19 (all alpha / beta).
     #
     # 2026-11-24, new ICAs (dataset bad channels), chosen by Claude for the parameter exploration (Yoav to check):
     # shortlist by scripts/component_candidates.py (rule in its docstring), final pick by eye on the candidate PNGs

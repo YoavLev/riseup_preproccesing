@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Installs R and the R packages for 06_crqa.R on a UCloud job. Run once per job (after setup_job.sh):
+# Installs R and the R packages for 06_crqa.R and 07_crqa_plots.R on a UCloud job. Run once per job (after setup_job.sh):
 #   bash "/work/YoavLevy#3923/riseup_preproccesing/python/Yoav/scripts/install_r.sh"
 #
 # R itself (apt, Ubuntu's r-base 4.3.3) is part of the job's system and is gone after every job, so it is
@@ -26,10 +26,10 @@ export R_LIBS_USER="$RLIB"
 Rscript -e '
 options(repos = "https://cloud.r-project.org", Ncpus = 8)
 lib <- Sys.getenv("R_LIBS_USER")
-for (p in c("data.table", "crqa")) {
+for (p in c("data.table", "crqa", "lme4")) {
   if (!requireNamespace(p, quietly = TRUE)) install.packages(p, lib = lib)
 }
 library(crqa)
 cat(R.version.string, "| crqa", format(packageVersion("crqa")), "| data.table", format(packageVersion("data.table")), "\n")
 '
-echo "R ready. Run: Rscript 06_crqa.R <session> [cores]"
+echo "R ready. Run: Rscript 06_crqa.R session02,session03,... [cores], then Rscript 07_crqa_plots.R"

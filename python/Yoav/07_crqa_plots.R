@@ -1,176 +1,204 @@
-# 07_crqa_plots.R: figures of the cRQA results of one session folder, after 06_crqa.R. For viewing and discussing
-# the method (a demo of one pair so far), not a statistical test.
+# 07_crqa_plots.R: figures and tables of the final cRQA (06_crqa.R), all sessions together.
 #
-# Figures (in derivatives/crqa/<folder>/plots/), per area (visual, motor):
-#   1. series_<area>.png   the two z-scored envelopes of one window per role (first 60 s): what cRQA compares.
-#   2. crp_<area>.png      cross-recurrence plots of the same windows (first 60 s). A dot at (t_A, t_B): the state of
-#                          A at t_A is close to the state of B at t_B (within the radius). Diagonal lines = A and B
-#                          go through the same sequence of states; lines on the main diagonal = at the same time.
-#   3. profile_<area>.png  diagonal cross-recurrence profile: recurrence rate as a function of the lag between A and
-#                          B (-5..+5 s), one thin line per window, thick = mean per role. A peak at lag 0 = the two
-#                          envelopes are similar at the same moment; a peak at +x s = B follows A by x s.
-#   4. measures.png        %REC (RR) and %DET of every window, by role and area (as saved by 06_crqa.R).
+# Within-pair differences: for each pair, the mean over its windows of one role minus the mean over its windows of
+# the other role (only pairs that had both). Contrasts:
+#   teammates - opponents   (RQ1; both roles occur in every joint block, so not confounded with time)
+#   teammates - solo        (RQ2; Solo always comes first: confounded with time / order)
+#   joint - surrogate       (real joint pairs minus the same people in different blocks: coupling of the moment)
+# Pairs share participants, so they are not independent: the CIs (t over pairs) and Wilcoxon p are a guide.
+# Mixed model (if lme4 is installed), joint windows only:
+#   measure ~ role + block + (1|session) + (1|pair) + (1|participant_a) + (1|participant_b)
+#   role effect tested with a likelihood-ratio test against the model without role (ML fit).
 #
-# The cRQA parameters are those 06_crqa.R used (crqa_parameters_<folder>.csv, used = TRUE), the envelopes are
-# z-scored per window as in 06_crqa.R, so the plots show exactly what the measures were computed on.
-#
-# Usage (on UCloud, after scripts/install_r.sh):
-#   Rscript 07_crqa_plots.R session03 [cores]
-#   Rscript 07_crqa_plots.R session03_smooth1hz [cores]
+# Usage: Rscript 07_crqa_plots.R [folder]   (default final_smooth1hz_5hz)
+# Output: derivatives/crqa/<folder>/summary/  contrasts.png, contrasts_RR.png, roles.png, profile.png,
+#         sessions.png, crp_example_<area>.png, contrasts.csv, contrasts_per_pair.csv, models.csv, counts.csv,
+#         outliers.csv
 
 suppressMessages({
   library(crqa)
   library(data.table)
-  library(parallel)
   library(Matrix)
 })
-# data.table's own threads (OpenMP) make the forked workers of mclapply() hang (they wait forever on a lock):
-# one thread, the parallel work is done by mclapply() alone
 setDTthreads(1)
-
 args <- commandArgs(trailingOnly = TRUE)
-folder <- if (length(args) >= 1) args[1] else "session03"
-cores <- if (length(args) >= 2) as.integer(args[2]) else 8
-dir <- file.path(Sys.getenv("RT_CRQA_ROOT", "/work/YoavLevy#3923/derivatives/crqa"), folder)
-out <- file.path(dir, "plots")
+folder <- if (length(args) >= 1) args[1] else "final_smooth1hz_5hz"
+root <- Sys.getenv("RT_CRQA_ROOT", "/work/YoavLevy#3923/derivatives/crqa")
+dir <- file.path(root, folder)
+out <- file.path(dir, "summary")
 dir.create(out, showWarnings = FALSE)
 
-# --- Settings -------------------------------------------------------------------------------------------------
-show_s <- 60           # seconds of each example window shown in figures 1 and 2
-max_lag_s <- 5         # lag range of the diagonal profile [s], both sides
-roles <- c("baseline", "solo", "teammates", "opponents")
-role_colour <- c(baseline = "#999999", solo = "#E69F00", teammates = "#0072B2", opponents = "#D55E00")
+roles <- c("baseline", "solo", "teammates", "opponents", "surrogate")
+role_colour <- c(baseline = "#999999", solo = "#E69F00", teammates = "#0072B2", opponents = "#D55E00",
+                 surrogate = "#555555")
+results <- fread(file.path(dir, "results.csv"))
+params <- fread(file.path(dir, "parameters.csv"))
+sessions <- sort(unique(results$session))
+session_colour <- setNames(c("#0072B2", "#D55E00", "#009E73", "#CC79A7", "#E69F00", "#56B4E9", "#999999",
+                             "#000000")[seq_along(sessions)], sessions)
+measures <- c("lagRR_2s", "RR", "DET")
+areas <- intersect(c("visual", "motor"), unique(results$area))
 
-# --- Data -----------------------------------------------------------------------------------------------------
-windows <- fread(file.path(dir, "windows.csv"))
-results <- fread(file.path(dir, paste0("crqa_", folder, ".csv")))
-params <- fread(file.path(dir, paste0("crqa_parameters_", folder, ".csv")))[used == TRUE]
-envelopes <- fread(file.path(dir, "envelopes.csv"))
-envelopes[, x_a := as.numeric(scale(x_a)), by = window_id]   # z-score per window and person, as in 06_crqa.R
-envelopes[, x_b := as.numeric(scale(x_b)), by = window_id]
-series <- split(envelopes, by = "window_id")
-fs <- round(median(windows$n_samples / windows$duration_s))   # envelope sampling rate (25 Hz)
-max_lag <- max_lag_s * fs
-windows[, role := factor(role, levels = roles)]
-results[, role := factor(role, levels = roles)]
+# --- Counts ---------------------------------------------------------------------------------------------------
+counts <- results[, .(windows = .N, pairs = uniqueN(paste(session, pair))), by = .(area, role)]
+fwrite(counts, file.path(out, "counts.csv"))
 
-# One example window per area and role: the first trial of that role (lowest round, then trial)
-examples <- windows[order(area, role, round, trial), .SD[1], by = .(area, role)]
-
-# --- cRQA of every window: the recurrence matrix, for the profile (and the plot of the examples) ----------------
-run_crqa <- function(id) {
-  w <- series[[as.character(id)]]
-  p <- params[area == windows[window_id == id, area]]
-  crqa(w$x_a, w$x_b, delay = p$delay, embed = p$embed, radius = p$radius, rescale = 0, normalize = 0,
-       mindiagline = 2, minvertline = 2, tw = 0, whiteline = FALSE, recpt = FALSE, side = "both",
-       method = "crqa", metric = "euclidean", datatype = "continuous")
+# --- Within-pair contrasts ------------------------------------------------------------------------------------
+pm <- results[, lapply(.SD, mean), by = .(session, area, pair, role), .SDcols = measures]
+pm <- rbind(pm, results[kind == "real" & condition == "joint", lapply(.SD, mean), by = .(session, area, pair),
+                        .SDcols = measures][, role := "joint"])
+contrast <- function(r1, r2) {
+  w <- dcast(pm[role %in% c(r1, r2)], session + area + pair ~ role, value.var = measures)
+  rbindlist(lapply(measures, function(m) {
+    w[, .(measure = m, contrast = paste(r1, "-", r2), diff = get(paste0(m, "_", r1)) - get(paste0(m, "_", r2))),
+      by = .(session, area, pair)]
+  }))[!is.na(diff)]
 }
+diffs <- rbind(contrast("teammates", "opponents"), contrast("teammates", "solo"), contrast("joint", "surrogate"))
+summ <- diffs[, {
+  n <- .N; m <- mean(diff); se <- sd(diff) / sqrt(n)
+  .(n_pairs = n, mean = m, lo = m - qt(0.975, n - 1) * se, hi = m + qt(0.975, n - 1) * se,
+    share_positive = mean(diff > 0), wilcoxon_p = if (n >= 5) suppressWarnings(wilcox.test(diff)$p.value) else NA)
+}, by = .(contrast, measure, area)]
+fwrite(summ, file.path(out, "contrasts.csv"))
+fwrite(diffs, file.path(out, "contrasts_per_pair.csv"))
+print(summ, digits = 3)
 
-# Diagonal profile from the recurrence matrix: for lag k, the share of recurrent points on the diagonal
-# t_B - t_A = k (in %). Positive lag = B's state matches A's state k samples later (B follows A).
-diagonal_profile <- function(rp) {
-  n <- nrow(rp)
-  nz <- summary(rp)                        # row (i = A's time), column (j = B's time) of every recurrent point
-  lag <- nz$j - nz$i
-  lag <- lag[abs(lag) <= max_lag]
-  counts <- tabulate(lag + max_lag + 1, nbins = 2 * max_lag + 1)
-  100 * counts / (n - abs(-max_lag:max_lag))
-}
+# --- Mixed models (joint windows) -----------------------------------------------------------------------------
+if (requireNamespace("lme4", quietly = TRUE)) {
+  d <- results[kind == "real" & condition == "joint"]
+  d[, `:=`(role = factor(role, levels = c("opponents", "teammates")), block = factor(round),
+           pair_id = paste(session, pair))]
+  models <- rbindlist(lapply(areas, function(ar) rbindlist(lapply(c("lagRR_2s", "RR"), function(m) {
+    dd <- d[area == ar]
+    f1 <- as.formula(paste(m, "~ role + block + (1|session) + (1|pair_id) + (1|participant_a) + (1|participant_b)"))
+    f0 <- update(f1, . ~ . - role)
+    m1 <- suppressMessages(lme4::lmer(f1, data = dd, REML = FALSE))
+    m0 <- suppressMessages(lme4::lmer(f0, data = dd, REML = FALSE))
+    lrt <- anova(m0, m1)
+    co <- summary(m1)$coefficients["roleteammates", ]
+    data.table(area = ar, measure = m, n_windows = nrow(dd), teammates_minus_opponents = co[["Estimate"]],
+               se = co[["Std. Error"]], chisq = lrt$Chisq[2], p_lrt = lrt$`Pr(>Chisq)`[2],
+               singular = lme4::isSingular(m1))
+  }))))
+  fwrite(models, file.path(out, "models.csv"))
+  print(models, digits = 3)
+} else cat("lme4 not installed: no mixed models\n")
 
-cat(folder, ":", nrow(windows), "windows, cRQA for the profiles on", cores, "cores\n")
-computed <- mclapply(windows$window_id, function(id) {
-  r <- run_crqa(id)
-  keep <- id %in% examples$window_id
-  list(window_id = id, RR = r$RR, profile = diagonal_profile(r$RP),
-       rp = if (keep) r$RP[seq_len(min(nrow(r$RP), show_s * fs)), seq_len(min(ncol(r$RP), show_s * fs))] else NULL)
-}, mc.cores = cores)
-names(computed) <- sapply(computed, `[[`, "window_id")
-
-# Check: the recurrence rate recomputed here must match what 06_crqa.R saved
-check <- merge(results[, .(window_id, RR_06 = RR)], data.table(window_id = as.integer(names(computed)),
-               RR_07 = sapply(computed, `[[`, "RR")), by = "window_id")
-cat("largest RR difference to 06_crqa.R:", signif(max(abs(check$RR_06 - check$RR_07)), 3), "%\n")
-
-title_of <- function(w) {
-  r <- results[window_id == w$window_id]
-  sprintf("%s: %s r%d t%d   (whole window %.0f s: RR %.1f %%, DET %.1f %%)", as.character(w$role), w$condition, w$round,
-          w$trial, w$duration_s, r$RR, r$DET)
-}
-
-for (ar in unique(windows$area)) {
-  ex <- examples[area == ar]
-  p <- params[area == ar]
-  pair <- ex$pair[1]
-  setting <- sprintf("%s, %s %s | delay %d (%.2f s), embedding %d, radius %.2f", pair, ar, ex$band[1], p$delay,
-                     p$delay / fs, p$embed, p$radius)
-
-  # --- 1. the envelopes -------------------------------------------------------------------------------------
-  png(file.path(out, paste0("series_", ar, ".png")), width = 1400, height = 250 * nrow(ex) + 80, res = 110)
-  par(mfrow = c(nrow(ex), 1), mar = c(3, 4, 2, 1), oma = c(0, 0, 2.5, 0), mgp = c(2, 0.6, 0))
-  for (k in seq_len(nrow(ex))) {
-    w <- series[[as.character(ex$window_id[k])]][sample < show_s * fs]
-    t <- w$sample / fs
-    plot(t, w$x_a, type = "l", col = "black", lwd = 1, ylim = range(c(w$x_a, w$x_b)),
-         xlab = "time in the window (s)", ylab = "envelope (z)", main = title_of(ex[k]), cex.main = 0.95)
-    lines(t, w$x_b, col = role_colour[as.character(ex$role[k])], lwd = 1)
-    legend("topright", c(ex$participant_a[k], ex$participant_b[k]), col = c("black", role_colour[as.character(ex$role[k])]),
-           lwd = 1, bty = "n", cex = 0.8, horiz = TRUE)
+# --- Figure: contrasts (one figure per measure) ---------------------------------------------------------------
+contrast_titles <- c("teammates - opponents" = "Teammates minus opponents",
+                     "teammates - solo" = "Teammates minus playing alone",
+                     "joint - surrogate" = "Real pairs minus shuffled pairs")
+plot_contrasts <- function(m, file, ylab) {
+  png(file.path(out, file), width = 1800, height = 1100, res = 130)
+  par(mfrow = c(length(areas), 3), mar = c(3, 4.5, 3, 1), mgp = c(2.6, 0.7, 0))
+  set.seed(97)
+  for (ar in areas) for (ct in names(contrast_titles)) {
+    d <- diffs[measure == m & area == ar & contrast == ct]
+    s <- summ[measure == m & area == ar & contrast == ct]
+    lim <- range(c(d$diff, s$lo, s$hi, 0))
+    plot(runif(nrow(d), 0.75, 1.25), d$diff, pch = 19, cex = 0.9, col = adjustcolor(session_colour[d$session], 0.7),
+         xlim = c(0.4, 1.9), ylim = lim, xaxt = "n", xlab = "", ylab = ylab,
+         main = sprintf("%s: %s", ar, contrast_titles[[ct]]), cex.main = 1)
+    abline(h = 0, lty = 2, col = "grey50")
+    sig <- s$lo > 0 | s$hi < 0
+    arrows(1.6, s$lo, 1.6, s$hi, angle = 90, code = 3, length = 0.05, lwd = 2, col = if (sig) "#0072B2" else "black")
+    points(1.6, s$mean, pch = 19, cex = 1.6, col = if (sig) "#0072B2" else "black")
+    mtext(sprintf("%d pairs, mean %.2f", s$n_pairs, s$mean), side = 1, line = 1, cex = 0.7)
+    if (ar == areas[1] && ct == names(contrast_titles)[1])
+      legend("topleft", sessions, col = session_colour, pch = 19, bty = "n", cex = 0.75)
   }
-  mtext(paste("Envelopes compared by cRQA (first", show_s, "s;", setting, ")"), outer = TRUE, cex = 0.9)
   dev.off()
-
-  # --- 2. cross-recurrence plots ----------------------------------------------------------------------------
-  png(file.path(out, paste0("crp_", ar, ".png")), width = 1400, height = 1450, res = 110)
-  par(mfrow = c(2, 2), mar = c(4, 4, 3, 1), oma = c(0, 0, 2.5, 0), mgp = c(2.2, 0.6, 0), pty = "s")
-  for (k in seq_len(nrow(ex))) {
-    rp <- as.matrix(computed[[as.character(ex$window_id[k])]]$rp)
-    t <- (seq_len(nrow(rp)) - 1) / fs
-    image(t, t, rp * 1, col = c("white", role_colour[as.character(ex$role[k])]), useRaster = TRUE,
-          xlab = paste("time of", ex$participant_a[k], "(s)"), ylab = paste("time of", ex$participant_b[k], "(s)"),
-          main = sub("   ", "\n", title_of(ex[k])), cex.main = 0.9)
-    abline(0, 1, col = "grey40", lty = 3)
-  }
-  mtext(paste("Cross-recurrence plots (first", show_s, "s;", setting, ")"), outer = TRUE, cex = 0.9)
-  dev.off()
-
-  # --- 3. diagonal profile ----------------------------------------------------------------------------------
-  lags <- (-max_lag:max_lag) / fs
-  ids <- windows[area == ar, window_id]
-  prof <- do.call(rbind, lapply(as.character(ids), function(id) computed[[id]]$profile))
-  role_of <- windows[match(ids, window_id), role]
-  png(file.path(out, paste0("profile_", ar, ".png")), width = 1300, height = 800, res = 110)
-  par(mar = c(4, 4, 3, 1), mgp = c(2.2, 0.6, 0))
-  plot(NA, xlim = range(lags), ylim = range(prof), xlab = "lag (s): positive = B follows A",
-       ylab = "recurrence rate on the diagonal (%)",
-       main = paste("Diagonal cross-recurrence profile\n", setting), cex.main = 0.9)
-  abline(v = 0, col = "grey80")
-  for (i in seq_len(nrow(prof))) lines(lags, prof[i, ], col = adjustcolor(role_colour[as.character(role_of[i])], 0.25))
-  n_role <- table(droplevels(role_of))
-  for (ro in names(n_role)) lines(lags, colMeans(prof[role_of == ro, , drop = FALSE]), col = role_colour[ro], lwd = 3)
-  legend("topright", sprintf("%s (n = %d)", names(n_role), n_role), col = role_colour[names(n_role)], lwd = 3, bty = "n")
-  dev.off()
-  fwrite(data.table(window_id = rep(ids, each = length(lags)), role = rep(role_of, each = length(lags)),
-                    lag_s = rep(lags, length(ids)), RR = as.vector(t(prof))),
-         file.path(out, paste0("profile_", ar, ".csv")))
 }
+plot_contrasts("lagRR_2s", "contrasts.png", "difference in recurrence within 2 s (points)")
+plot_contrasts("RR", "contrasts_RR.png", "difference in whole-plot recurrence (points)")
 
-# --- 4. %REC and %DET by role --------------------------------------------------------------------------------
-png(file.path(out, "measures.png"), width = 1400, height = 1000, res = 110)
-areas <- unique(results$area)
-par(mfrow = c(2, length(areas)), mar = c(4, 4, 3, 1), mgp = c(2.2, 0.6, 0))
-set.seed(97)   # the horizontal jitter of the points
-for (measure in c("RR", "DET")) for (ar in areas) {
-  d <- results[area == ar]
-  x <- as.integer(d$role)
-  plot(x + runif(nrow(d), -0.15, 0.15), d[[measure]], pch = 19, col = role_colour[as.character(d$role)],
-       xlim = c(0.5, length(roles) + 0.5), xaxt = "n", xlab = "", ylab = paste0(measure, " (%)"),
-       main = sprintf("%s: %s (%s)", ar, if (measure == "RR") "%REC" else "%DET", d$pair[1]))
-  axis(1, at = seq_along(roles), labels = roles)
-  med <- d[, .(m = median(get(measure))), by = role]
-  segments(as.integer(med$role) - 0.3, med$m, as.integer(med$role) + 0.3, med$m, lwd = 3)
+# --- Figure: lagRR_2s by role ---------------------------------------------------------------------------------
+png(file.path(out, "roles.png"), width = 1700, height = 700, res = 130)
+par(mfrow = c(1, length(areas)), mar = c(3, 4.5, 3, 1), mgp = c(2.6, 0.7, 0))
+for (ar in areas) {
+  d <- pm[area == ar & role %in% roles]
+  d[, x := match(role, roles)]
+  plot(d$x + runif(nrow(d), -0.2, 0.2), d$lagRR_2s, pch = 19, cex = 0.7,
+       col = adjustcolor(role_colour[d$role], 0.6), xlim = c(0.5, length(roles) + 0.5), xaxt = "n", xlab = "",
+       ylab = "recurrence within 2 s (%), mean per pair", main = ar)
+  axis(1, at = seq_along(roles), labels = c("bubbles", "alone", "teammates", "opponents", "shuffled"))
+  med <- d[, .(v = median(lagRR_2s)), by = x]
+  segments(med$x - 0.3, med$v, med$x + 0.3, med$v, lwd = 3)
 }
 dev.off()
 
-print(results[, .(n = .N, RR = median(RR), DET = median(DET), L = median(L)), by = .(area, role)][order(area, role)],
-      digits = 3)
-cat("figures saved to", out, "\n")
+# --- Figure: per session, teammates - opponents ---------------------------------------------------------------
+png(file.path(out, "sessions.png"), width = 1500, height = 650, res = 130)
+par(mfrow = c(1, length(areas)), mar = c(3, 4.5, 3, 1), mgp = c(2.6, 0.7, 0))
+for (ar in areas) {
+  d <- diffs[measure == "lagRR_2s" & area == ar & contrast == "teammates - opponents"]
+  s <- d[, .(m = mean(diff), se = sd(diff) / sqrt(.N), n = .N), by = session][order(session)]
+  x <- seq_len(nrow(s))
+  plot(x, s$m, pch = 19, col = session_colour[s$session], cex = 1.5, xlim = c(0.5, nrow(s) + 0.5),
+       ylim = range(c(s$m - 2 * s$se, s$m + 2 * s$se, 0), na.rm = TRUE), xaxt = "n", xlab = "",
+       ylab = "teammates - opponents (points)", main = sprintf("%s: per session (mean +- 2 SE)", ar))
+  arrows(x, s$m - 2 * s$se, x, s$m + 2 * s$se, angle = 90, code = 3, length = 0.04)
+  abline(h = 0, lty = 2, col = "grey50")
+  axis(1, at = x, labels = sprintf("%s\n(%d pairs)", sub("session", "S", s$session), s$n), padj = 0.5, cex.axis = 0.85)
+}
+dev.off()
+
+# --- Figure: diagonal profile by role -------------------------------------------------------------------------
+prof <- merge(fread(file.path(dir, "profiles.csv")), fread(file.path(dir, "windows.csv"))[, .(uid, role, area)],
+              by = "uid")
+png(file.path(out, "profile.png"), width = 1700, height = 700, res = 130)
+par(mfrow = c(1, length(areas)), mar = c(4, 4.5, 3, 1), mgp = c(2.6, 0.7, 0))
+for (ar in areas) {
+  p <- prof[area == ar, .(RR = mean(RR), se = sd(RR) / sqrt(.N)), by = .(role, lag_s)]
+  p[is.na(se), se := 0]
+  plot(NA, xlim = range(p$lag_s), ylim = range(c(p$RR - 2 * p$se, p$RR + 2 * p$se)),
+       xlab = "time shift between the two people (s)", ylab = "recurrence (%)", main = ar)
+  rect(-2, -1e3, 2, 1e3, col = "grey93", border = NA)
+  for (ro in intersect(roles, unique(p$role))) {
+    q <- p[role == ro][order(lag_s)]
+    polygon(c(q$lag_s, rev(q$lag_s)), c(q$RR - 2 * q$se, rev(q$RR + 2 * q$se)),
+            col = adjustcolor(role_colour[ro], 0.15), border = NA)
+    lines(q$lag_s, q$RR, col = role_colour[ro], lwd = 2)
+  }
+  legend("topright", c("bubbles", "alone", "teammates", "opponents")[match(intersect(roles, unique(p$role)), roles)],
+         col = role_colour[intersect(roles, unique(p$role))], lwd = 2, bty = "n", cex = 0.85)
+}
+dev.off()
+
+# --- Figure: a cross-recurrence plot (first 60 s of one teammate window) --------------------------------------
+w <- fread(file.path(dir, "windows.csv"))
+for (ar in areas) {
+  ex <- w[area == ar & role == "teammates"][order(session, pair, round, trial)][1]
+  e <- fread(file.path(root, paste0(ex$session, "_", sub("^final_", "", folder)), "envelopes.csv"))[window_id ==
+                                                                                                         ex$window_id]
+  xa <- as.numeric(scale(e$x_a)); xb <- as.numeric(scale(e$x_b))
+  p <- params[area == ar]
+  r <- crqa(xa, xb, delay = 1, embed = 1, radius = p$radius, rescale = 0, normalize = 0, mindiagline = p$mindiagline,
+            minvertline = p$mindiagline, tw = 0, whiteline = FALSE, recpt = FALSE, side = "both", method = "crqa",
+            metric = "euclidean", datatype = "continuous")
+  n <- min(nrow(r$RP), round(60 * p$fs))
+  t <- (seq_len(n) - 1) / p$fs
+  png(file.path(out, sprintf("crp_example_%s.png", ar)), width = 1500, height = 800, res = 130)
+  layout(matrix(c(1, 2), 1), widths = c(1.3, 1))
+  par(mar = c(4, 4.5, 3, 1), mgp = c(2.6, 0.7, 0))
+  plot(t, xa[1:n], type = "l", col = "#0072B2", lwd = 2, xlab = "time (s)", ylab = "envelope (z)",
+       ylim = range(c(xa[1:n], xb[1:n])), main = "two teammates' envelopes (60 s)")
+  lines(t, xb[1:n], col = "#D55E00", lwd = 2)
+  par(pty = "s")
+  image(t, t, as.matrix(r$RP[1:n, 1:n]) * 1, col = c("white", "black"), useRaster = TRUE,
+        xlab = "time, person A (s)", ylab = "time, person B (s)", main = "recurrence plot")
+  abline(0, 1, col = "grey60", lty = 3)
+  abline(2, 1, col = "#0072B2", lty = 2); abline(-2, 1, col = "#0072B2", lty = 2)
+  dev.off()
+}
+
+# --- Outlier windows (flagged, not removed): > 3 IQR from the median of their area and role, or > 20 % bad ------
+d <- results[kind == "real"]
+d[, outlier := abs(lagRR_2s - median(lagRR_2s)) > 3 * IQR(lagRR_2s) | abs(RR - median(RR)) > 3 * IQR(RR),
+  by = .(area, role)]
+d[, bad := pmax(bad_fraction_a, bad_fraction_b)]
+fwrite(d[outlier | bad > 0.2, .(session, area, role, pair, condition, round, trial, duration_s, RR, lagRR_2s,
+                                bad_fraction_a, bad_fraction_b, outlier)], file.path(out, "outliers.csv"))
+cat("outlier/bad windows:", d[outlier | bad > 0.2, .N], "of", nrow(d), "\n")
+cat("saved to", out, "\n")

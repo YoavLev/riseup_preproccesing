@@ -1,38 +1,11 @@
-"""Python versions of the two EEGLAB functions used in the reference pipeline
-(Stropahl et al., 2018, supplementary material): pop_firws (filtering) and pop_jointprob
-(rejecting unusual epochs before ICA); the automatic bad-channel check; and the plot of all
-component maps in one figure.
+"""Python version of the EEGLAB function pop_jointprob (rejecting unusual epochs before ICA) used in the
+reference pipeline (Stropahl et al., 2018, supplementary material); the automatic bad-channel check; and the
+plot of all component maps in one figure. (The filters are MNE's filter() since 2026-11-12.)
 """
 
 import re
 
 import numpy as np
-from scipy.signal import firwin, oaconvolve
-
-
-def firws_filter(raw, cutoff, kind, order):
-    """Filter like EEGLAB's pop_firws: windowed-sinc FIR filter with a Hann window.
-
-    cutoff: the cut-off frequency in Hz (the -6 dB point).
-    kind:   "lowpass" or "highpass".
-    order:  filter order (even number); the filter has order + 1 coefficients.
-
-    The filter is applied once and is zero-phase (its delay is compensated), so events stay
-    at the same time. EEG and EOG channels are filtered in place.
-    """
-    if order % 2:
-        raise ValueError("the filter order must be even")
-    coefficients = firwin(order + 1, cutoff, window="hann", pass_zero=(kind == "lowpass"),
-                          fs=raw.info["sfreq"])
-    half = order // 2
-
-    def apply(signal):
-        # Repeat the first/last sample at the edges, so the edges are not pulled towards zero
-        padded = np.pad(signal, half, mode="edge")
-        return oaconvolve(padded, coefficients, mode="valid")
-
-    raw.apply_function(apply, picks=["eeg", "eog"], channel_wise=True)
-    return raw
 
 
 def _sample_probability(x, bins=1000):

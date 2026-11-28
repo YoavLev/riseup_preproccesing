@@ -1,6 +1,6 @@
 """Shortlist of visual (alpha) and motor (beta) components per participant, for choosing SPATIAL_FILTER_CHOICE by eye.
 
-Input: the numbers of /work/YoavLevy#3923/tests/component_scores.py <session> (per kept session-ICA component:
+Input: the numbers of scripts/component_scores.py <session> (per kept session-ICA component:
 alpha/beta peak above the 1/f background, 20-40 Hz slope, share of the map in the visual/motor electrodes, strongest
 electrodes). The rule written down from how the session03 trial components were chosen (2026-11-19; it gives the
 same component for 3 of the 4, see below), and from CLAUDE.md ("one alpha component (parietal/occipital, peak above
@@ -44,7 +44,7 @@ import config as cfg  # noqa: E402
 mne.set_log_level("error")
 SESSION = sys.argv[1]
 ICA_NAME = sys.argv[2] if len(sys.argv) > 2 else "session"   # session | visual | motor
-SCORE_DIR = Path("/work/YoavLevy#3923/tests/component_scores")
+SCORE_DIR = cfg.OUT_ROOT / "component_scores"   # written by component_scores.py
 SCORES = SCORE_DIR / f"{SESSION}_{ICA_NAME}_ica.csv"
 OUT = cfg.OUT_ROOT / "spatial_filter_review" / SESSION
 SUFFIX = "" if ICA_NAME == "session" else f"_{ICA_NAME}"

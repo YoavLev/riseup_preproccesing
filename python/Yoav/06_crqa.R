@@ -1,107 +1,131 @@
-# 06_crqa.R: cross-recurrence quantification (cRQA) of every pair x area x trial window of one session,
-# with the crqa R package (Coco et al., 2021). Checked against crqa 2.1.0.
-
-# Steps:
-#   1. z-score each envelope (scale(), base R). optimizeParam() takes its candidate radii from the distances
-#      between the values it is given, so they must be on the same scale as what crqa() compares.
-#   2. optimizeParam() on every window: delay (auto mutual information), embedding dimension (false nearest
-#      neighbours) and the radius that gives 2-5 % recurrence.
-#   3. One delay, dimension and radius per area: the median over all windows of that area (all roles pooled,
-#      so no role is favoured). Fixed for all windows, so RR can differ between roles.
-#   4. crqa() on every window with these parameters; the measures are saved as crqa() returns them.
+# 06_crqa.R: cRQA of all sessions with the settings decided on 2026-11-25 (after a parameter exploration).
 #
-# Usage (on UCloud, from any folder; once per job first: bash scripts/install_r.sh, which installs R and
-# tells it where the packages are):
-#   Rscript 06_crqa.R session03 [cores]
-# RT_CRQA_ROOT overrides the folder (e.g. for a test copy).
+# Input: the window folders of 05_windows with the decided smoothing (config.py: CRQA_SMOOTH_HZ = 1 Hz, zero-phase
+# FIR, then CRQA_SFREQ = 5 Hz): derivatives/crqa/<session>_smooth1hz_5hz/ (windows.csv, envelopes.csv).
+#
+# Settings (one set for every session, pair, role and window):
+#   - each envelope z-scored per window;
+#   - embedding m = 1 (no embedding): the false-nearest-neighbour share of the envelopes stayed at 80-90 % for every
+#     dimension (they behave like noise at this time scale), so no embedding dimension is supported by the data.
+#     With m = 1 the delay plays no role;
+#   - radius: one per area, the median over all real windows (all sessions, all roles) of the 5 % quantile of the
+#     distances between A's and B's values (target recurrence ~5 %, the upper end of the range of Coco et al., 2021);
+#     fixed, so recurrence can differ between roles;
+#   - minimum diagonal and vertical line: 0.4 s (2 samples at 5 Hz);
+#   - primary measure: lagRR_2s = %REC within +-2 s of the same moment (diagonals |lag| <= 2 s). Control: RR, the
+#     recurrence rate of the whole plot (any lag), and DET.
+#   - surrogate pairs (joint trials): A's envelope in one joint trial with B's envelope in a joint trial of another
+#     block of the same session (same trial number), cut to the shorter. Same people, same task, not the same moment.
+#
+# Usage (on UCloud, after scripts/install_r.sh):  Rscript 06_crqa.R session02,session03,session04,session05,session06 [cores]
+# Output: derivatives/crqa/final_smooth1hz_5hz/  parameters.csv, windows.csv, results.csv, profiles.csv
 
 suppressMessages({
   library(crqa)
   library(data.table)
   library(parallel)
+  library(Matrix)
 })
-# data.table's own threads (OpenMP) make the forked workers of mclapply() hang (they wait forever on a lock):
-# one thread, the parallel work is done by mclapply() alone
-setDTthreads(1)
+setDTthreads(1)   # data.table's OpenMP threads make forked mclapply() workers hang
 
 args <- commandArgs(trailingOnly = TRUE)
-session <- if (length(args) >= 1) args[1] else "session03"
+sessions <- strsplit(if (length(args) >= 1) args[1] else "session03,session04", ",")[[1]]
 cores <- if (length(args) >= 2) as.integer(args[2]) else 8
-dir <- file.path(Sys.getenv("RT_CRQA_ROOT", "/work/YoavLevy#3923/derivatives/crqa"), session)
-RNGkind("L'Ecuyer-CMRG")  # random numbers that stay reproducible with mclapply
+suffix <- Sys.getenv("RT_CRQA_SUFFIX", "smooth1hz_5hz")
+root <- Sys.getenv("RT_CRQA_ROOT", "/work/YoavLevy#3923/derivatives/crqa")
+out <- file.path(root, paste0("final_", suffix))
+dir.create(out, showWarnings = FALSE)
+RNGkind("L'Ecuyer-CMRG")
 set.seed(97)
 
 # --- Settings -------------------------------------------------------------------------------------------------
-# Arguments of crqa(), also used by optimizeParam() (see ?crqa and ?optimizeParam)
-normalize <- 0        # the envelopes are z-scored in step 1 already
-rescale <- 0          # radius in units of the z-scored envelopes
-mindiagline <- 2      # crqa() default
-minvertline <- 2      # crqa() default
-tw <- 0               # Theiler window: 0 for cross-recurrence (two different people)
-# optimizeParam() only
-par <- list(method = "crqa", metric = "euclidean", datatype = "continuous",
-            # Delay: mutual information of A with itself, B with itself and A with B, for lags 0..50 samples
-            # (0-2 s at 25 Hz). "mindip": the curve with the lowest minimum is taken, and the lag of its lowest
-            # point (the global minimum within maxlag, not the first dip). If the curve keeps falling, this is
-            # the edge of the range (lag ~50): check the delays in crqa_parameters_<session>.csv.
-            maxlag = 50,
-            typeami = "mindip",
-            # Embedding dimension: false nearest neighbours for 1..10 dimensions, per person. Threshold = 1/10 of
-            # the false-neighbour share at dimension 1; the dimension after the last drop larger than that is
-            # taken, and the larger of the two people's dimensions is used.
-            maxEmb = 10,
-            fnnpercent = 10,
-            # Radius: candidate radii from 3 x the median distance between A's and B's values down to 0, in steps
-            # of SD(distances) / radiusspan; a binary search takes the first one with min_rec-max_rec % recurrence.
-            # (optimizeParam() in crqa 2.1.0 does not use a "radiussample" argument.)
-            radiusspan = 100,
-            normalize = normalize, rescale = rescale, mindiagline = mindiagline, minvertline = minvertline,
-            tw = tw, whiteline = FALSE, recpt = FALSE, side = "both")
-min_rec <- 2          # radius: recurrence rate between 2 % ...
-max_rec <- 5          # ... and 5 % (Coco et al., 2021, examples)
+embed <- 1
+delay <- 1            # no role with embed = 1
+target <- 5           # target recurrence rate [%] for the radius
+line_s <- 0.4         # minimum diagonal / vertical line [s]
+band_s <- 2           # lagRR: recurrence within +-2 s of the same moment
+profile_s <- 10       # diagonal profile saved for -10..10 s
 
 # --- Data -----------------------------------------------------------------------------------------------------
-windows <- fread(file.path(dir, "windows.csv"))
-envelopes <- fread(file.path(dir, "envelopes.csv"))
-envelopes[, x_a := as.numeric(scale(x_a)), by = window_id]   # step 1: z-score per window and person
-envelopes[, x_b := as.numeric(scale(x_b)), by = window_id]
-series <- split(envelopes, by = "window_id")                   # one table per window, named by window_id
-cat(session, ":", nrow(windows), "windows,", cores, "cores\n")
+read_session <- function(s) {
+  dir <- file.path(root, paste0(s, "_", suffix))
+  w <- fread(file.path(dir, "windows.csv"))
+  e <- fread(file.path(dir, "envelopes.csv"))
+  w[, uid := paste(s, window_id, sep = ":")]   # window ids are only unique within a session
+  e[, uid := paste(s, window_id, sep = ":")]
+  list(w = w, e = e)
+}
+data <- lapply(sessions, read_session)
+windows <- rbindlist(lapply(data, `[[`, "w"), fill = TRUE)
+envelopes <- rbindlist(lapply(data, `[[`, "e"), fill = TRUE)
+rm(data)
+envelopes[, x_a := as.numeric(scale(x_a)), by = uid]
+envelopes[, x_b := as.numeric(scale(x_b)), by = uid]
+series <- split(envelopes[, .(uid, x_a, x_b)], by = "uid", keep.by = FALSE)
+rm(envelopes)
+fs <- round(median(windows$n_samples / windows$duration_s), 3)
+mindiagline <- max(2L, as.integer(round(line_s * fs)))
+cat(paste(sessions, collapse = ", "), ":", nrow(windows), "windows at", fs, "Hz,", cores, "cores\n")
+t0 <- Sys.time()
+elapsed <- function() sprintf("%.1f min", as.numeric(difftime(Sys.time(), t0, units = "mins")))
 
-# --- Step 2: optimizeParam() per window -----------------------------------------------------------------------
-estimates <- mclapply(windows$window_id, function(id) {
-  w <- series[[as.character(id)]]
-  p <- optimizeParam(w$x_a, w$x_b, par, min.rec = min_rec, max.rec = max_rec)
-  if (is.null(p)) p <- list(radius = NA, emddim = NA, delay = NA)  # no radius found in the 2-5 % range
-  data.table(window_id = id, delay = p$delay, embed = p$emddim, radius = p$radius)
+# --- Radius per area: median over windows of the target quantile of |A - B| -----------------------------------
+q <- unlist(mclapply(windows$uid, function(id) {
+  w <- series[[id]]
+  quantile(abs(outer(w$x_a, w$x_b, "-")), target / 100, names = FALSE)
+}, mc.cores = cores))
+parameters <- windows[, .(radius = median(q[.I]), n_windows = .N), by = area]
+parameters[, `:=`(embed = embed, delay = delay, target = target, fs = fs, mindiagline = mindiagline,
+                  mindiagline_s = mindiagline / fs, sessions = paste(sessions, collapse = " "))]
+print(parameters)
+fwrite(parameters, file.path(out, "parameters.csv"))
+
+# --- cRQA of every window and of the surrogate pairs ----------------------------------------------------------
+band <- round(band_s * fs)
+max_prof <- round(profile_s * fs)
+measure <- function(xa, xb, radius) {
+  r <- crqa(xa, xb, delay = delay, embed = embed, radius = radius, rescale = 0, normalize = 0,
+            mindiagline = mindiagline, minvertline = mindiagline, tw = 0, whiteline = FALSE, recpt = FALSE,
+            side = "both", method = "crqa", metric = "euclidean", datatype = "continuous")
+  n <- nrow(r$RP)
+  nz <- summary(r$RP)                       # recurrent points: i = A's time, j = B's time
+  lag <- nz$j - nz$i                        # positive = B's state matches A's earlier state (B follows A)
+  counts <- tabulate(lag[abs(lag) <= max_prof] + max_prof + 1, nbins = 2 * max_prof + 1)
+  cells <- n - abs(-max_prof:max_prof)      # cells on each diagonal
+  in_band <- abs(-max_prof:max_prof) <= band
+  list(values = data.table(RR = r$RR, DET = r$DET, L_s = r$L / fs, LAM = r$LAM,
+                           lagRR_2s = 100 * sum(counts[in_band]) / sum(cells[in_band])),
+       profile = 100 * counts / cells)
+}
+
+joint <- windows[condition == "joint", .(uid, session, area, pair, round, trial)]
+surrogates <- merge(joint, joint, by = c("session", "area", "pair", "trial"), suffixes = c("_a", "_b"),
+                    allow.cartesian = TRUE)[round_a != round_b]
+jobs <- rbind(windows[, .(kind = "real", uid, uid_b = uid, area)],
+              surrogates[, .(kind = "surrogate", uid = uid_a, uid_b, area)])
+radius_of <- setNames(parameters$radius, parameters$area)
+cat(nrow(jobs), "cRQA jobs (", sum(jobs$kind == "real"), "real,", sum(jobs$kind == "surrogate"), "surrogate ) |",
+    elapsed(), "\n")
+
+computed <- mclapply(seq_len(nrow(jobs)), function(k) {
+  j <- jobs[k]
+  xa <- series[[j$uid]]$x_a
+  xb <- series[[j$uid_b]]$x_b
+  n <- min(length(xa), length(xb))
+  m <- measure(xa[1:n], xb[1:n], radius_of[[j$area]])
+  list(values = cbind(j, n_samples = n, m$values),
+       profile = if (j$kind == "real") data.table(uid = j$uid, lag_s = (-max_prof:max_prof) / fs, RR = m$profile))
 }, mc.cores = cores)
-estimates <- merge(windows[, .(window_id, area, role)], rbindlist(estimates), by = "window_id")
-cat("optimizeParam() found no radius for", sum(is.na(estimates$radius)), "of", nrow(estimates), "windows\n")
+failed <- sapply(computed, inherits, "try-error")
+if (any(failed)) stop(sum(failed), " cRQA jobs failed, e.g. ", computed[[which(failed)[1]]])
+results <- rbindlist(lapply(computed, `[[`, "values"))
+results <- merge(results, windows[, .(uid, window_id, session, pair, participant_a, participant_b, condition, round,
+                                      trial, role, duration_s, bad_fraction_a, bad_fraction_b)], by = "uid")
+results[kind == "surrogate", role := "surrogate"]
+fwrite(windows, file.path(out, "windows.csv"))
+fwrite(results, file.path(out, "results.csv"))
+fwrite(rbindlist(lapply(computed, `[[`, "profile")), file.path(out, "profiles.csv"))
 
-# --- Step 3: one set of parameters per area (median over windows) ---------------------------------------------
-used <- estimates[, .(delay = round(median(delay, na.rm = TRUE)), embed = round(median(embed, na.rm = TRUE)),
-                      radius = median(radius, na.rm = TRUE), n_windows = sum(!is.na(radius))), by = area]
-print(used)
-fwrite(rbind(estimates[, .(area, window_id, role, delay, embed, radius, used = FALSE)],
-             used[, .(area, window_id = NA, role = NA, delay, embed, radius, used = TRUE)]),
-       file.path(dir, paste0("crqa_parameters_", session, ".csv")))
-
-# --- Step 4: crqa() per window --------------------------------------------------------------------------------
-results <- mclapply(windows$window_id, function(id) {
-  w <- series[[as.character(id)]]
-  p <- used[area == windows[window_id == id, area]]
-  r <- crqa(w$x_a, w$x_b, delay = p$delay, embed = p$embed, radius = p$radius, rescale = rescale,
-            normalize = normalize, mindiagline = mindiagline, minvertline = minvertline, tw = tw,
-            whiteline = FALSE, recpt = FALSE, side = "both", method = "crqa", metric = "euclidean",
-            datatype = "continuous")
-  data.table(window_id = id, delay = p$delay, embed = p$embed, radius = p$radius,
-             RR = r$RR, DET = r$DET, NRLINE = r$NRLINE, maxL = r$maxL, L = r$L, ENTR = r$ENTR,
-             rENTR = r$rENTR, LAM = r$LAM, TT = r$TT)
-}, mc.cores = cores)
-results <- merge(windows, rbindlist(results), by = "window_id")
-fwrite(results, file.path(dir, paste0("crqa_", session, ".csv")))
-
-# --- Overview -------------------------------------------------------------------------------------------------
-print(results[, .(n = .N, RR = mean(RR), RR_sd = sd(RR), DET = mean(DET), DET_sd = sd(DET), L = mean(L)),
+print(results[, .(n = .N, RR = median(RR), DET = median(DET), lagRR_2s = median(lagRR_2s)),
               by = .(area, role)][order(area, role)], digits = 3)
-cat("saved to", dir, "\n")
+cat("saved to", out, "|", elapsed(), "\n")

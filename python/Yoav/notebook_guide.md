@@ -9,15 +9,15 @@ The ICA cleaning follows the **reference pipeline** the lab uses: Stropahl, Baue
 | `ana03_preprocessing.m` | `03_clean.ipynb` | per participant | Removes the components and filters the data |
 | — | `04a_localizer_ica.ipynb` | per participant | A separate ICA on each localizer task (motor: bubble popping; visual: instruction video), fitted on the clean data; PNGs for choosing a visual and a motor component |
 | — | `04_spatial_filter.ipynb` | per participant | Overview PNG of the kept session-ICA components; after the choice (`SPATIAL_FILTER_CHOICE`, from the session or a localizer ICA), the envelopes of the chosen components at 25 Hz |
-| — | `05_windows.ipynb` + `06_crqa.R` | once per session | Python cuts every pair × area × trial window in session time (with the pair's role); R's `crqa` package computes the recurrence measures |
+| — | `05_windows.ipynb` | once per session | Smooths the envelopes (1 Hz) and downsamples them (5 Hz), then cuts every pair × area × trial window in session time (with the pair's role) |
+| — | `06_crqa.R` + `07_crqa_plots.R` | once, all sessions | R's `crqa` package computes the recurrence measures with one set of settings; then the within-pair contrasts, mixed models and figures |
 
 - **Settings:** every constant is in `config.py`, with its name in the reference scripts in brackets (e.g. `[ana01: LP]`).
-- **Helpers (`utils.py`):** `jointprob_keep` (= EEGLAB `pop_jointprob`), `find_bad_channels` (PREP criteria, adapted), `plot_component_maps`; `firws_filter` (= `pop_firws`) is no longer used.
-- **Scripts (`scripts/`):** `setup_job.sh` (Python environment, once per UCloud job); `install_r.sh` (R + crqa for `06_crqa.R`, once per UCloud job); `execute_notebooks.py <notebook> <session> [sub-NNN ...] [--parallel N]` (runs a notebook for everyone in a session); `run_status.py <notebook>` (progress); `suggest_corrmap_templates.py <session>` (ICLabel suggestions for templates); `bad_segments_summary.py <session>`; `localizer_maps_overview.py <session>` (one PNG per localizer with all participants' maps); `ica_test.py` (test variants of the ICA).
+- **Helpers (`utils.py`):** `jointprob_keep` (= EEGLAB `pop_jointprob`), `find_bad_channels` (PREP criteria, adapted), `plot_component_maps`.
+- **Scripts (`scripts/`):** `setup_job.sh` (Python environment, once per UCloud job); `install_r.sh` (R + crqa + lme4, once per UCloud job); `execute_notebooks.py <notebook> <session> [sub-NNN ...] [--parallel N]` (runs a notebook for everyone in a session); `run_status.py <notebook>` (progress); `suggest_corrmap_templates.py <session>` (ICLabel suggestions for templates); `component_scores.py <session> [session|visual|motor]` + `component_candidates.py <session> [visual|motor]` (numbers and shortlist PNGs for choosing `SPATIAL_FILTER_CHOICE`); `final_components.py <session>` (one figure of the chosen components).
 - **Open questions** about the adaptation: `ica_reference_questions.md`.
 - **Data:** the BIDS dataset on UCloud (read-only), read with `rt_bids`. Participants are `sub-NNN`; their session is `group` in `participants.tsv`.
 - **Outputs:** `/work/YoavLevy#3923/derivatives/preproc/sub-NNN/` (`OUT_ROOT`); review PNGs in `derivatives/preproc/spatial_filter_review/<session>/`; executed notebooks and run output in `/work/YoavLevy#3923/logs/`.
-- The earlier single notebook `eeg_data_preprocessing_mne_ordered.ipynb` is superseded.
 
 ```
 01_ica (each)                      02_corrmap (session)        03_clean (each)               04a / 04 (each)
@@ -69,19 +69,21 @@ Per participant, on the clean data, one ICA per localizer (`LOCALIZERS` in `conf
 
 Overview PNG of the kept session-ICA components. After the choice is written into `SPATIAL_FILTER_CHOICE` (`{area: (ICA, component, band)}`, ICA = `"session"`, `"motor"` or `"visual"`), takes each chosen component's time course on the clean data, band-passes it (alpha 8–12, mu 8–12, beta 13–30 Hz), takes its Hilbert envelope on the continuous data and downsamples it to `ENVELOPE_SFREQ` (25 Hz, so cRQA stays feasible). Saved per area as `<sub>_<area>_<band>_<ICA>_envelope_raw.fif`, with all events.
 
-## `05_windows.ipynb` + `06_crqa.R`: cross-recurrence per pair, once per session
+## `05_windows.ipynb`, `06_crqa.R`, `07_crqa_plots.R`: cross-recurrence per pair
 
 `05_windows` (Python, because the windows are cut with `rt_bids`):
 1. Loads the envelopes of every participant with a choice (checks that `04` used what `config.py` says); pairs = participants with the same area.
 2. Trials from `rt_bids.session_events` (session time); per pair and trial the window both were playing; role: `teammates` / `opponents` (same / different `team_id` in a joint trial), `solo`, `baseline`.
 3. Session time → envelope sample with `rt_bids.from_session_time` (drift and gaps corrected) minus the clean data's `first_samp`; not `crop_session` (it ignores `first_samp`). The share of bad time per window is recorded.
-4. Saves `derivatives/crqa/<session>/windows.csv` and `envelopes.csv`.
+4. Smooths each envelope (`CRQA_SMOOTH_HZ` = 1 Hz, zero-phase FIR) and downsamples it (`CRQA_SFREQ` = 5 Hz); saves `derivatives/crqa/<session>_smooth1hz_5hz/windows.csv` and `envelopes.csv`.
 
-`06_crqa.R` (R, `crqa` package; once per job `bash scripts/install_r.sh`, then `Rscript 06_crqa.R <session> [cores]`):
-1. z-scores each envelope (`scale()`): `optimizeParam()` takes its candidate radii from the values it is given.
-2. `optimizeParam()` per window (delay from AMI, dimension from FNN, radius for 2–5 % recurrence).
-3. One delay, dimension and radius per area: the median over its windows (all roles pooled), fixed for all windows.
-4. `crqa()` per window; saves `crqa_<session>.csv` (windows + RR, DET, L, maxL, ENTR, rENTR, LAM, TT) and `crqa_parameters_<session>.csv`.
+`06_crqa.R` (R, `crqa` package; once per job `bash scripts/install_r.sh`, then `Rscript 06_crqa.R session02,session03,... [cores]`), all sessions together, one set of settings:
+1. z-scores each envelope per window; embedding m = 1 (no embedding, so the delay plays no role).
+2. One radius per area: the median over all windows of the 5 % quantile of the A–B distances (target ~5 % recurrence), fixed for all roles.
+3. Minimum line 0.4 s. Measures: `lagRR_2s` (recurrence within ±2 s of the same moment, primary), `RR` of the whole plot (control), DET, L, LAM; surrogate pairs (the same pair in another block, same trial number).
+4. Saves `derivatives/crqa/final_smooth1hz_5hz/` (`parameters.csv`, `windows.csv`, `results.csv`, `profiles.csv`).
+
+`07_crqa_plots.R`: within-pair contrasts (teammates − opponents, teammates − solo, joint − surrogate), mixed models (lme4) and figures, in the same folder.
 
 ## Order of work
 
@@ -89,4 +91,4 @@ Overview PNG of the kept session-ICA components. After the choice is written int
 2. Choose the templates, run `02_corrmap`; review the red components, add misses to `EXTRA_EXCLUDE` and false matches to `EXTRA_KEEP`, rerun.
 3. `03_clean` for every participant.
 4. `04a_localizer_ica` and/or `04_spatial_filter`; choose components with the supervisor; envelopes.
-5. `05_windows` once per session, then `06_crqa.R`.
+5. `05_windows` once per session; then `06_crqa.R` over all sessions and `07_crqa_plots.R`.
